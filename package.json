@@ -1,0 +1,14 @@
+{
+  "name": "atos",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspace @atos/web",
+    "lint": "npm run lint --workspace @atos/web",
+    "test": "npm run test --workspace @atos/web"
+  }
+}
