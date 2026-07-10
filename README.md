@@ -21,6 +21,8 @@ Contracts describe desired outcomes. Chits normalize the atomic work required to
 
 A train is not a permanent object. A train is a temporary mission bundle assembled from available cars, energy assets, station capacity, and route opportunity.
 
+The physical-world layer extends the same model to snap-together hex tiles, track, buildings, stations, cargo, and vehicles. Every physical entity declares typed capacities, inventories, ports, power needs, behaviors, and light/motion/audio effects. See the [Physical World Architecture](docs/architecture/README.md).
+
 ## Initial repository structure
 
 ```text
@@ -33,6 +35,17 @@ docs/
     0005-station-as-router.md
     0006-deficiency-gates.md
     0007-energy-logistics.md
+    0008-generalized-physical-world-contract.md
+  architecture/
+    README.md
+    physical-world-model.md
+    entity-capability-contract.md
+    resources-recipes-logistics.md
+    hex-tile-runtime.md
+    vehicles-consists-routes.md
+    effects-spatial-audio.md
+    design-precedents.md
+    worked-examples.md
 schema/
   universal_chit.sql
 ```

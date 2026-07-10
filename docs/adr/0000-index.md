@@ -11,6 +11,11 @@ This directory records the architectural decisions for ATOS.
 - [0005: Station-as-Router Architecture](0005-station-as-router.md)
 - [0006: Deficiency Gates](0006-deficiency-gates.md)
 - [0007: Energy Logistics](0007-energy-logistics.md)
+- [0008: Generalized Physical World Contract](0008-generalized-physical-world-contract.md)
+
+## Supporting architecture
+
+- [Physical World Architecture](../architecture/README.md)
 
 ## ADR format
 
