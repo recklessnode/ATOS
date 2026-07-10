@@ -4,11 +4,22 @@
   "private": true,
   "type": "module",
   "workspaces": [
-    "apps/*"
+    "apps/*",
+    "packages/*"
   ],
   "scripts": {
-    "build": "npm run build --workspace @atos/web",
-    "lint": "npm run lint --workspace @atos/web",
-    "test": "npm run test --workspace @atos/web"
+    "build": "npm run build --workspace @atos/domain && npm run build --workspace @atos/layout && npm run build --workspace @atos/scenario && npm run build --workspace @atos/web",
+    "lint": "eslint . --max-warnings=0",
+    "test": "npm run test --workspaces --if-present"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^26.1.1",
+    "eslint": "^10.6.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.3",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.63.0",
+    "vitest": "^4.1.10"
   }
 }

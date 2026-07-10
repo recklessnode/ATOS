@@ -31,4 +31,22 @@ describe("ATOS web shell", () => {
       ).toBeInTheDocument();
     }
   });
+
+  it("renders the loaded six-tile fixture counts", () => {
+    render(<App />);
+
+    const status = screen.getByRole("region", { name: /scenario status/i });
+
+    expect(within(status).getByRole("heading", { name: "Six Tile City Fixture" })).toBeInTheDocument();
+    expect(within(status).getByText(/Schema version:\s*1/)).toBeInTheDocument();
+    expect(within(status).getByText(/Tiles:\s*6/)).toBeInTheDocument();
+    expect(within(status).getByText(/Guideway:\s*12 nodes \/ 12 links/)).toBeInTheDocument();
+    expect(
+      within(status).getByText(/Electrical:\s*12 nodes \/ 12 branches \/ 5 loads/),
+    ).toBeInTheDocument();
+    expect(within(status).getByText(/Stations:\s*1 \/ Service zones:\s*3/)).toBeInTheDocument();
+    expect(within(status).getByText(/Vehicles:\s*4/)).toBeInTheDocument();
+    expect(within(status).getByText(/Open chits:\s*4/)).toBeInTheDocument();
+    expect(within(status).getByText(/Validation:\s*valid/)).toBeInTheDocument();
+  });
 });

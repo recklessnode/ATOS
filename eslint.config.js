@@ -5,12 +5,17 @@ import tseslint from "typescript-eslint";
 
 export default tseslint.config(
   {
-    ignores: ["dist", "node_modules"],
+    ignores: [
+      "**/dist/**",
+      "**/node_modules/**",
+      "**/coverage/**",
+      "**/*.tsbuildinfo",
+    ],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
-    files: ["**/*.{ts,tsx}"],
+    files: ["**/*.{js,ts,tsx}"],
     languageOptions: {
       ecmaVersion: 2022,
       globals: {
