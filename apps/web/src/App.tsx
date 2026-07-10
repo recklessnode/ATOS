@@ -1,5 +1,8 @@
+import { getSixTileCitySummary } from "@atos/scenario";
 import "./App.css";
 import { WORKSPACES } from "./workspaces";
+
+const scenarioSummary = getSixTileCitySummary();
 
 export function App() {
   return (
@@ -17,6 +20,33 @@ export function App() {
           ))}
         </nav>
       </header>
+
+      <section className="scenario-status" aria-label="Scenario status">
+        <div>
+          <p className="workspace-status">Loaded fixture</p>
+          <h2>{scenarioSummary.title}</h2>
+        </div>
+        <ul>
+          <li>Schema version: {scenarioSummary.schemaVersion}</li>
+          <li>Tiles: {scenarioSummary.tileCount}</li>
+          <li>
+            Guideway: {scenarioSummary.guidewayNodeCount} nodes /{" "}
+            {scenarioSummary.guidewayLinkCount} links
+          </li>
+          <li>
+            Electrical: {scenarioSummary.electricalNodeCount} nodes /{" "}
+            {scenarioSummary.electricalBranchCount} branches /{" "}
+            {scenarioSummary.electricalLoadCount} loads
+          </li>
+          <li>
+            Stations: {scenarioSummary.stationCount} / Service zones:{" "}
+            {scenarioSummary.serviceZoneCount}
+          </li>
+          <li>Vehicles: {scenarioSummary.vehicleCount}</li>
+          <li>Open chits: {scenarioSummary.openChitCount}</li>
+          <li>Validation: {scenarioSummary.validationState}</li>
+        </ul>
+      </section>
 
       <section className="workspace-grid" aria-label="Workspace placeholders">
         {WORKSPACES.map((workspace) => (

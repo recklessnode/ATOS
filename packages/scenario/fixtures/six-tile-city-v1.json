@@ -1,0 +1,427 @@
+{
+  "schemaVersion": 1,
+  "scenario": {
+    "id": "scenario-six-tile-city-v1",
+    "title": "Six Tile City Fixture",
+    "description": "Deterministic six-tile ATOS fixture with a guideway loop, station services, power source, vehicles, and unsatisfied chits.",
+    "createdAt": "2026-07-10T00:00:00.000Z",
+    "updatedAt": "2026-07-10T00:00:00.000Z"
+  },
+  "randomSeed": "atos-six-tile-city-v1",
+  "layout": {
+    "scale": "tabletop",
+    "hex": {
+      "orientation": "pointy-top",
+      "radiusMm": 120,
+      "edgeLengthMm": 120
+    },
+    "tiles": [
+      {
+        "id": "tile-power",
+        "type": "power-injection-curve",
+        "version": 1,
+        "coordinate": {
+          "q": 1,
+          "r": 0
+        },
+        "orientation": 2
+      },
+      {
+        "id": "tile-platform",
+        "type": "passenger-station-curve",
+        "version": 1,
+        "coordinate": {
+          "q": 1,
+          "r": -1
+        },
+        "orientation": 3
+      },
+      {
+        "id": "tile-cargo",
+        "type": "cargo-depot-curve",
+        "version": 1,
+        "coordinate": {
+          "q": 0,
+          "r": -1
+        },
+        "orientation": 4
+      },
+      {
+        "id": "tile-utility",
+        "type": "utility-curve",
+        "version": 1,
+        "coordinate": {
+          "q": -1,
+          "r": 0
+        },
+        "orientation": 5
+      },
+      {
+        "id": "tile-charging",
+        "type": "charging-siding-curve",
+        "version": 1,
+        "coordinate": {
+          "q": -1,
+          "r": 1
+        },
+        "orientation": 0
+      },
+      {
+        "id": "tile-station",
+        "type": "passenger-station-curve",
+        "version": 1,
+        "coordinate": {
+          "q": 0,
+          "r": 1
+        },
+        "orientation": 1
+      }
+    ],
+    "setPieces": [
+      {
+        "id": "sp-station-control",
+        "type": "station-control",
+        "version": 1,
+        "tileId": "tile-station",
+        "localGuidewayNodeId": "guideway-a",
+        "localElectricalNodeId": "bus-a"
+      },
+      {
+        "id": "sp-passenger-platform",
+        "type": "passenger-platform",
+        "version": 1,
+        "tileId": "tile-platform",
+        "localGuidewayNodeId": "guideway-b",
+        "localElectricalNodeId": "bus-a"
+      },
+      {
+        "id": "sp-cargo-depot",
+        "type": "cargo-depot",
+        "version": 1,
+        "tileId": "tile-cargo",
+        "localGuidewayNodeId": "guideway-b",
+        "localElectricalNodeId": "bus-a"
+      },
+      {
+        "id": "sp-charging-siding",
+        "type": "charging-siding",
+        "version": 1,
+        "tileId": "tile-charging",
+        "localGuidewayNodeId": "guideway-a",
+        "localElectricalNodeId": "bus-a"
+      },
+      {
+        "id": "sp-yard-lighting",
+        "type": "yard-lighting",
+        "version": 1,
+        "tileId": "tile-utility",
+        "localGuidewayNodeId": "guideway-a",
+        "localElectricalNodeId": "bus-a"
+      }
+    ]
+  },
+  "guideway": {
+    "nodes": [
+      { "id": "tile-cargo:guideway-a", "tileId": "tile-cargo", "localNodeId": "guideway-a", "coordinateKey": "0,-1" },
+      { "id": "tile-cargo:guideway-b", "tileId": "tile-cargo", "localNodeId": "guideway-b", "coordinateKey": "0,-1" },
+      { "id": "tile-charging:guideway-a", "tileId": "tile-charging", "localNodeId": "guideway-a", "coordinateKey": "-1,1" },
+      { "id": "tile-charging:guideway-b", "tileId": "tile-charging", "localNodeId": "guideway-b", "coordinateKey": "-1,1" },
+      { "id": "tile-platform:guideway-a", "tileId": "tile-platform", "localNodeId": "guideway-a", "coordinateKey": "1,-1" },
+      { "id": "tile-platform:guideway-b", "tileId": "tile-platform", "localNodeId": "guideway-b", "coordinateKey": "1,-1" },
+      { "id": "tile-power:guideway-a", "tileId": "tile-power", "localNodeId": "guideway-a", "coordinateKey": "1,0" },
+      { "id": "tile-power:guideway-b", "tileId": "tile-power", "localNodeId": "guideway-b", "coordinateKey": "1,0" },
+      { "id": "tile-station:guideway-a", "tileId": "tile-station", "localNodeId": "guideway-a", "coordinateKey": "0,1" },
+      { "id": "tile-station:guideway-b", "tileId": "tile-station", "localNodeId": "guideway-b", "coordinateKey": "0,1" },
+      { "id": "tile-utility:guideway-a", "tileId": "tile-utility", "localNodeId": "guideway-a", "coordinateKey": "-1,0" },
+      { "id": "tile-utility:guideway-b", "tileId": "tile-utility", "localNodeId": "guideway-b", "coordinateKey": "-1,0" }
+    ],
+    "links": [
+      { "id": "connection:tile-cargo:guideway-a:tile-utility:guideway-b", "fromNodeId": "tile-cargo:guideway-a", "toNodeId": "tile-utility:guideway-b", "kind": "tile-connection" },
+      { "id": "connection:tile-cargo:guideway-b:tile-platform:guideway-a", "fromNodeId": "tile-cargo:guideway-b", "toNodeId": "tile-platform:guideway-a", "kind": "tile-connection" },
+      { "id": "connection:tile-charging:guideway-a:tile-station:guideway-b", "fromNodeId": "tile-charging:guideway-a", "toNodeId": "tile-station:guideway-b", "kind": "tile-connection" },
+      { "id": "connection:tile-charging:guideway-b:tile-utility:guideway-a", "fromNodeId": "tile-charging:guideway-b", "toNodeId": "tile-utility:guideway-a", "kind": "tile-connection" },
+      { "id": "connection:tile-platform:guideway-b:tile-power:guideway-a", "fromNodeId": "tile-platform:guideway-b", "toNodeId": "tile-power:guideway-a", "kind": "tile-connection" },
+      { "id": "connection:tile-power:guideway-b:tile-station:guideway-a", "fromNodeId": "tile-power:guideway-b", "toNodeId": "tile-station:guideway-a", "kind": "tile-connection" },
+      { "id": "tile-cargo:curve", "fromNodeId": "tile-cargo:guideway-a", "toNodeId": "tile-cargo:guideway-b", "kind": "tile-internal" },
+      { "id": "tile-charging:curve", "fromNodeId": "tile-charging:guideway-a", "toNodeId": "tile-charging:guideway-b", "kind": "tile-internal" },
+      { "id": "tile-platform:curve", "fromNodeId": "tile-platform:guideway-a", "toNodeId": "tile-platform:guideway-b", "kind": "tile-internal" },
+      { "id": "tile-power:curve", "fromNodeId": "tile-power:guideway-a", "toNodeId": "tile-power:guideway-b", "kind": "tile-internal" },
+      { "id": "tile-station:curve", "fromNodeId": "tile-station:guideway-a", "toNodeId": "tile-station:guideway-b", "kind": "tile-internal" },
+      { "id": "tile-utility:curve", "fromNodeId": "tile-utility:guideway-a", "toNodeId": "tile-utility:guideway-b", "kind": "tile-internal" }
+    ],
+    "openEnds": [],
+    "incompatibleConnections": [],
+    "disconnectedComponents": [
+      {
+        "id": "component-1",
+        "nodeIds": [
+          "tile-cargo:guideway-a",
+          "tile-cargo:guideway-b",
+          "tile-charging:guideway-a",
+          "tile-charging:guideway-b",
+          "tile-platform:guideway-a",
+          "tile-platform:guideway-b",
+          "tile-power:guideway-a",
+          "tile-power:guideway-b",
+          "tile-station:guideway-a",
+          "tile-station:guideway-b",
+          "tile-utility:guideway-a",
+          "tile-utility:guideway-b"
+        ]
+      }
+    ],
+    "serviceAttachments": [
+      { "stationId": "station-central", "tileId": "tile-station", "nodeId": "tile-station:guideway-a" },
+      { "stationId": "station-central", "serviceZoneId": "zone-cargo", "tileId": "tile-cargo", "nodeId": "tile-cargo:guideway-b" },
+      { "stationId": "station-central", "serviceZoneId": "zone-charging", "tileId": "tile-charging", "nodeId": "tile-charging:guideway-a" },
+      { "stationId": "station-central", "serviceZoneId": "zone-passenger", "tileId": "tile-platform", "nodeId": "tile-platform:guideway-b" }
+    ]
+  },
+  "stations": [
+    {
+      "id": "station-central",
+      "label": "Central Station",
+      "tileId": "tile-station",
+      "guidewayAttachment": {
+        "tileId": "tile-station",
+        "localGuidewayNodeId": "guideway-a"
+      },
+      "serviceZoneIds": ["zone-passenger", "zone-cargo", "zone-charging"]
+    }
+  ],
+  "serviceZones": [
+    {
+      "id": "zone-passenger",
+      "stationId": "station-central",
+      "type": "passenger-platform",
+      "label": "Passenger Platform",
+      "capacity": 12,
+      "guidewayAttachment": {
+        "tileId": "tile-platform",
+        "localGuidewayNodeId": "guideway-b"
+      }
+    },
+    {
+      "id": "zone-cargo",
+      "stationId": "station-central",
+      "type": "cargo-depot",
+      "label": "Cargo Depot",
+      "capacity": 4,
+      "guidewayAttachment": {
+        "tileId": "tile-cargo",
+        "localGuidewayNodeId": "guideway-b"
+      }
+    },
+    {
+      "id": "zone-charging",
+      "stationId": "station-central",
+      "type": "charging-siding",
+      "label": "Charging Siding",
+      "capacity": 1,
+      "guidewayAttachment": {
+        "tileId": "tile-charging",
+        "localGuidewayNodeId": "guideway-a"
+      }
+    }
+  ],
+  "electrical": {
+    "nodes": [
+      { "id": "tile-cargo:bus-a", "tileId": "tile-cargo", "localNodeId": "bus-a" },
+      { "id": "tile-cargo:bus-b", "tileId": "tile-cargo", "localNodeId": "bus-b" },
+      { "id": "tile-charging:bus-a", "tileId": "tile-charging", "localNodeId": "bus-a" },
+      { "id": "tile-charging:bus-b", "tileId": "tile-charging", "localNodeId": "bus-b" },
+      { "id": "tile-platform:bus-a", "tileId": "tile-platform", "localNodeId": "bus-a" },
+      { "id": "tile-platform:bus-b", "tileId": "tile-platform", "localNodeId": "bus-b" },
+      { "id": "tile-power:bus-a", "tileId": "tile-power", "localNodeId": "bus-a" },
+      { "id": "tile-power:bus-b", "tileId": "tile-power", "localNodeId": "bus-b" },
+      { "id": "tile-station:bus-a", "tileId": "tile-station", "localNodeId": "bus-a" },
+      { "id": "tile-station:bus-b", "tileId": "tile-station", "localNodeId": "bus-b" },
+      { "id": "tile-utility:bus-a", "tileId": "tile-utility", "localNodeId": "bus-a" },
+      { "id": "tile-utility:bus-b", "tileId": "tile-utility", "localNodeId": "bus-b" }
+    ],
+    "branches": [
+      { "id": "electrical-connection:tile-cargo:bus-a:tile-utility:bus-b", "fromNodeId": "tile-cargo:bus-a", "toNodeId": "tile-utility:bus-b", "resistanceOhms": 0.02, "currentLimitAmps": 4, "enabled": true, "kind": "tile-connection" },
+      { "id": "electrical-connection:tile-cargo:bus-b:tile-platform:bus-a", "fromNodeId": "tile-cargo:bus-b", "toNodeId": "tile-platform:bus-a", "resistanceOhms": 0.02, "currentLimitAmps": 4, "enabled": true, "kind": "tile-connection" },
+      { "id": "electrical-connection:tile-charging:bus-a:tile-station:bus-b", "fromNodeId": "tile-charging:bus-a", "toNodeId": "tile-station:bus-b", "resistanceOhms": 0.02, "currentLimitAmps": 4, "enabled": true, "kind": "tile-connection" },
+      { "id": "electrical-connection:tile-charging:bus-b:tile-utility:bus-a", "fromNodeId": "tile-charging:bus-b", "toNodeId": "tile-utility:bus-a", "resistanceOhms": 0.02, "currentLimitAmps": 4, "enabled": true, "kind": "tile-connection" },
+      { "id": "electrical-connection:tile-platform:bus-b:tile-power:bus-a", "fromNodeId": "tile-platform:bus-b", "toNodeId": "tile-power:bus-a", "resistanceOhms": 0.02, "currentLimitAmps": 4, "enabled": true, "kind": "tile-connection" },
+      { "id": "electrical-connection:tile-power:bus-b:tile-station:bus-a", "fromNodeId": "tile-power:bus-b", "toNodeId": "tile-station:bus-a", "resistanceOhms": 0.02, "currentLimitAmps": 4, "enabled": true, "kind": "tile-connection" },
+      { "id": "tile-cargo:bus-link", "fromNodeId": "tile-cargo:bus-a", "toNodeId": "tile-cargo:bus-b", "resistanceOhms": 0.08, "currentLimitAmps": 4, "enabled": true, "kind": "tile-internal" },
+      { "id": "tile-charging:bus-link", "fromNodeId": "tile-charging:bus-a", "toNodeId": "tile-charging:bus-b", "resistanceOhms": 0.08, "currentLimitAmps": 4, "enabled": true, "kind": "tile-internal" },
+      { "id": "tile-platform:bus-link", "fromNodeId": "tile-platform:bus-a", "toNodeId": "tile-platform:bus-b", "resistanceOhms": 0.08, "currentLimitAmps": 4, "enabled": true, "kind": "tile-internal" },
+      { "id": "tile-power:bus-link", "fromNodeId": "tile-power:bus-a", "toNodeId": "tile-power:bus-b", "resistanceOhms": 0.08, "currentLimitAmps": 4, "enabled": true, "kind": "tile-internal" },
+      { "id": "tile-station:bus-link", "fromNodeId": "tile-station:bus-a", "toNodeId": "tile-station:bus-b", "resistanceOhms": 0.08, "currentLimitAmps": 4, "enabled": true, "kind": "tile-internal" },
+      { "id": "tile-utility:bus-link", "fromNodeId": "tile-utility:bus-a", "toNodeId": "tile-utility:bus-b", "resistanceOhms": 0.08, "currentLimitAmps": 4, "enabled": true, "kind": "tile-internal" }
+    ],
+    "sources": [
+      { "id": "tile-power:source", "nodeId": "tile-power:bus-a", "nominalVoltage": 24, "maximumWatts": 100 }
+    ],
+    "loads": [
+      { "id": "sp-cargo-depot:cargo-handling", "nodeId": "tile-cargo:bus-a", "requestedWatts": 12, "minimumVoltage": 20, "loadClass": "cargo", "sheddingPriority": 20 },
+      { "id": "sp-charging-siding:charger", "nodeId": "tile-charging:bus-a", "requestedWatts": 20, "minimumVoltage": 20, "loadClass": "charging", "sheddingPriority": 5 },
+      { "id": "sp-passenger-platform:platform-lighting", "nodeId": "tile-platform:bus-a", "requestedWatts": 8, "minimumVoltage": 20, "loadClass": "passenger", "sheddingPriority": 10 },
+      { "id": "sp-station-control:control-load", "nodeId": "tile-station:bus-a", "requestedWatts": 6, "minimumVoltage": 20, "loadClass": "control", "sheddingPriority": 1 },
+      { "id": "sp-yard-lighting:lighting", "nodeId": "tile-utility:bus-a", "requestedWatts": 4, "minimumVoltage": 20, "loadClass": "effects", "sheddingPriority": 50 }
+    ],
+    "openConnectors": [],
+    "incompatibleConnections": []
+  },
+  "inventory": {
+    "vehicles": [
+      {
+        "id": "vehicle-commuter-1",
+        "label": "Commuter Car 1",
+        "vehicleClass": "commuter-passenger",
+        "state": "available",
+        "homeStationId": "station-central",
+        "currentTileId": "tile-platform",
+        "capabilities": ["passenger", "commuter"],
+        "capacity": { "passengers": 8 },
+        "battery": { "stateOfChargeWh": 80, "usableCapacityWh": 100 }
+      },
+      {
+        "id": "vehicle-express-1",
+        "label": "Express Car 1",
+        "vehicleClass": "express-passenger",
+        "state": "available",
+        "homeStationId": "station-central",
+        "currentTileId": "tile-station",
+        "capabilities": ["passenger", "express"],
+        "capacity": { "passengers": 4 },
+        "battery": { "stateOfChargeWh": 90, "usableCapacityWh": 100 }
+      },
+      {
+        "id": "vehicle-cargo-1",
+        "label": "Cargo Car 1",
+        "vehicleClass": "cargo",
+        "state": "available",
+        "homeStationId": "station-central",
+        "currentTileId": "tile-cargo",
+        "capabilities": ["cargo"],
+        "capacity": { "massKg": 12, "volumeLiters": 80 },
+        "battery": { "stateOfChargeWh": 70, "usableCapacityWh": 100 }
+      },
+      {
+        "id": "vehicle-battery-1",
+        "label": "Battery Support Car 1",
+        "vehicleClass": "battery-support",
+        "state": "available",
+        "homeStationId": "station-central",
+        "currentTileId": "tile-charging",
+        "capabilities": ["battery-support", "power-sharing"],
+        "capacity": { "energyWh": 240 },
+        "battery": { "stateOfChargeWh": 220, "usableCapacityWh": 240 }
+      }
+    ]
+  },
+  "contracts": [
+    {
+      "id": "contract-commuter",
+      "kind": "commuter-passenger",
+      "title": "Commuter transfer",
+      "status": "open",
+      "origin": { "stationId": "station-central", "serviceZoneId": "zone-passenger" },
+      "destination": { "stationId": "station-central", "serviceZoneId": "zone-passenger" },
+      "requestedAt": "2026-07-10T00:00:00.000Z",
+      "dueAt": "2026-07-10T00:05:00.000Z",
+      "priority": 40
+    },
+    {
+      "id": "contract-express",
+      "kind": "express-passenger",
+      "title": "Express passenger",
+      "status": "open",
+      "origin": { "stationId": "station-central", "serviceZoneId": "zone-passenger" },
+      "destination": { "stationId": "station-central", "serviceZoneId": "zone-passenger" },
+      "requestedAt": "2026-07-10T00:00:00.000Z",
+      "dueAt": "2026-07-10T00:03:00.000Z",
+      "priority": 80
+    },
+    {
+      "id": "contract-cargo",
+      "kind": "local-cargo",
+      "title": "Local cargo transfer",
+      "status": "open",
+      "origin": { "stationId": "station-central", "serviceZoneId": "zone-cargo" },
+      "destination": { "stationId": "station-central", "serviceZoneId": "zone-cargo" },
+      "requestedAt": "2026-07-10T00:00:00.000Z",
+      "dueAt": "2026-07-10T00:10:00.000Z",
+      "priority": 30
+    },
+    {
+      "id": "contract-battery",
+      "kind": "battery-support",
+      "title": "Battery support",
+      "status": "open",
+      "origin": { "stationId": "station-central", "serviceZoneId": "zone-charging" },
+      "destination": { "stationId": "station-central", "serviceZoneId": "zone-charging" },
+      "requestedAt": "2026-07-10T00:00:00.000Z",
+      "dueAt": "2026-07-10T00:08:00.000Z",
+      "priority": 60
+    }
+  ],
+  "chits": [
+    {
+      "id": "chit-commuter",
+      "contractId": "contract-commuter",
+      "kind": "commuter-passenger",
+      "status": "unsatisfied",
+      "origin": { "stationId": "station-central", "serviceZoneId": "zone-passenger" },
+      "destination": { "stationId": "station-central", "serviceZoneId": "zone-passenger" },
+      "readyAt": "2026-07-10T00:00:00.000Z",
+      "dueAt": "2026-07-10T00:05:00.000Z",
+      "priority": 40,
+      "quantity": { "passengers": 6 },
+      "requirements": { "requiredVehicleClasses": ["commuter-passenger"], "requiredCapabilities": ["passenger"], "stopSensitivity": "normal" },
+      "penalties": { "waitPerMinute": 1, "latePerMinute": 4, "transfer": 2, "handling": 0 }
+    },
+    {
+      "id": "chit-express",
+      "contractId": "contract-express",
+      "kind": "express-passenger",
+      "status": "unsatisfied",
+      "origin": { "stationId": "station-central", "serviceZoneId": "zone-passenger" },
+      "destination": { "stationId": "station-central", "serviceZoneId": "zone-passenger" },
+      "readyAt": "2026-07-10T00:00:00.000Z",
+      "dueAt": "2026-07-10T00:03:00.000Z",
+      "priority": 80,
+      "quantity": { "passengers": 2 },
+      "requirements": { "requiredVehicleClasses": ["express-passenger"], "requiredCapabilities": ["passenger", "express"], "stopSensitivity": "express" },
+      "penalties": { "waitPerMinute": 2, "latePerMinute": 8, "transfer": 5, "handling": 0 }
+    },
+    {
+      "id": "chit-cargo",
+      "contractId": "contract-cargo",
+      "kind": "local-cargo",
+      "status": "unsatisfied",
+      "origin": { "stationId": "station-central", "serviceZoneId": "zone-cargo" },
+      "destination": { "stationId": "station-central", "serviceZoneId": "zone-cargo" },
+      "readyAt": "2026-07-10T00:00:00.000Z",
+      "dueAt": "2026-07-10T00:10:00.000Z",
+      "priority": 30,
+      "quantity": { "massKg": 8, "volumeLiters": 40 },
+      "requirements": { "requiredVehicleClasses": ["cargo"], "requiredCapabilities": ["cargo"], "stopSensitivity": "normal" },
+      "penalties": { "waitPerMinute": 1, "latePerMinute": 3, "transfer": 1, "handling": 3 }
+    },
+    {
+      "id": "chit-battery",
+      "contractId": "contract-battery",
+      "kind": "battery-support",
+      "status": "unsatisfied",
+      "origin": { "stationId": "station-central", "serviceZoneId": "zone-charging" },
+      "destination": { "stationId": "station-central", "serviceZoneId": "zone-charging" },
+      "readyAt": "2026-07-10T00:00:00.000Z",
+      "dueAt": "2026-07-10T00:08:00.000Z",
+      "priority": 60,
+      "quantity": { "energyWh": 120 },
+      "requirements": { "requiredVehicleClasses": ["battery-support"], "requiredCapabilities": ["battery-support", "power-sharing"], "stopSensitivity": "direct" },
+      "penalties": { "waitPerMinute": 1, "latePerMinute": 6, "transfer": 4, "handling": 1 }
+    }
+  ],
+  "simulation": {
+    "currentTime": "2026-07-10T00:00:00.000Z",
+    "tickSeconds": 1,
+    "speedMultiplier": 1,
+    "paused": true
+  }
+}
