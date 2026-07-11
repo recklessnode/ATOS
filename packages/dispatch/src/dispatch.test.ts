@@ -59,12 +59,15 @@ describe("ATOS dispatch planner", () => {
     const first = planDispatch(createDispatchPlannerInput(freshScenario()));
     const second = planDispatch(createDispatchPlannerInput(freshScenario()));
 
-    expect(first.missionPlans.map((plan) => plan.chitId).sort()).toEqual([
+    expect(first.missionPlans.flatMap((plan) => plan.chitIds).sort()).toEqual([
       "chit-battery",
       "chit-cargo",
       "chit-commuter",
       "chit-express",
     ]);
+    expect(first.missionPlans.some((plan) =>
+      plan.chitIds.includes("chit-commuter") && plan.chitIds.includes("chit-cargo")
+    )).toBe(true);
     expect(first.missionPlans.map((plan) => plan.id)).toEqual(second.missionPlans.map((plan) => plan.id));
     expect(first.reservations.map((reservation) => reservation.id)).toEqual(
       second.reservations.map((reservation) => reservation.id),
@@ -116,6 +119,176 @@ describe("ATOS dispatch planner", () => {
     expect(result.reservations.filter((reservation) => reservation.resourceId === "asset:vehicle-commuter-1")).toHaveLength(1);
   });
 
+  it("groups compatible passenger chits into one mission when capacity allows", () => {
+    const scenario = freshScenario();
+    const commuter = scenario.chits.find((chit) => chit.id === "chit-commuter");
+    if (!commuter) {
+      throw new Error("fixture missing commuter chit");
+    }
+    scenario.chits = [
+      { ...commuter, id: "chit-commuter-a", quantity: { passengers: 3 }, priority: 45 },
+      { ...commuter, id: "chit-commuter-b", quantity: { passengers: 2 }, priority: 44 },
+    ];
+    scenario.inventory.vehicles = scenario.inventory.vehicles.filter(
+      (vehicle) => vehicle.id === "vehicle-commuter-1",
+    );
+
+    const result = planDispatch(createDispatchPlannerInput(scenario));
+
+    expect(result.missionPlans).toHaveLength(1);
+    expect(result.missionPlans[0]?.chitIds.sort()).toEqual(["chit-commuter-a", "chit-commuter-b"]);
+    expect(result.transientSuperWorkers[0]?.chitIds.sort()).toEqual(["chit-commuter-a", "chit-commuter-b"]);
+  });
+
+  it("keeps express passenger chits prioritized and separate from commuter grouping", () => {
+    const scenario = freshScenario();
+    const result = planDispatch(createDispatchPlannerInput(scenario));
+    const expressPlan = result.missionPlans.find((plan) => plan.chitIds.includes("chit-express"));
+    const commuterPlan = result.missionPlans.find((plan) => plan.chitIds.includes("chit-commuter"));
+
+    expect(normalizeDispatchChits(scenario.chits, scenario.simulation.currentTime)[0]?.id).toBe("chit-express");
+    expect(expressPlan).toBeDefined();
+    expect(commuterPlan).toBeDefined();
+    expect(expressPlan?.id).not.toBe(commuterPlan?.id);
+  });
+
+  it("allows compatible mixed commuter and local-cargo manifests", () => {
+    const scenario = freshScenario();
+    const commuter = scenario.chits.find((chit) => chit.id === "chit-commuter");
+    const cargo = scenario.chits.find((chit) => chit.id === "chit-cargo");
+    if (!commuter || !cargo) {
+      throw new Error("fixture missing mixed manifest chits");
+    }
+    scenario.chits = [
+      { ...commuter, quantity: { passengers: 2 }, priority: 45 },
+      { ...cargo, quantity: { massKg: 2, volumeLiters: 10 }, priority: 44 },
+    ];
+    scenario.inventory.vehicles = scenario.inventory.vehicles.filter((vehicle) =>
+      ["vehicle-commuter-1", "vehicle-cargo-1"].includes(vehicle.id)
+    );
+
+    const result = planDispatch(createDispatchPlannerInput(scenario));
+
+    expect(result.missionPlans).toHaveLength(1);
+    expect(result.missionPlans[0]?.chitIds.sort()).toEqual(["chit-cargo", "chit-commuter"]);
+    expect(result.missionPlans[0]?.workerIds).toEqual(expect.arrayContaining([
+      "worker:vehicle-cargo-1",
+      "worker:vehicle-commuter-1",
+    ]));
+    expect(result.missionPlans[0]?.workerIds).not.toContain("worker:vehicle-express-1");
+  });
+
+  it("does not group incompatible local and long-haul cargo", () => {
+    const scenario = freshScenario();
+    const cargo = scenario.chits.find((chit) => chit.id === "chit-cargo");
+    const cargoVehicle = scenario.inventory.vehicles.find((vehicle) => vehicle.id === "vehicle-cargo-1");
+    if (!cargo || !cargoVehicle) {
+      throw new Error("fixture missing cargo objects");
+    }
+    scenario.chits = [{ ...cargo, id: "chit-local-cargo", kind: "local-cargo", priority: 50 }];
+    scenario.inventory.vehicles = [
+      cargoVehicle,
+      { ...cargoVehicle, id: "vehicle-cargo-2", label: "Cargo Car 2" },
+    ];
+
+    const result = planDispatch(createDispatchPlannerInput(scenario, {
+      generatedChits: [
+        generatedChit({
+          id: "chit-long-haul-cargo",
+          kind: "long-haul-cargo",
+          priority: 49,
+          requirements: {
+            requiredVehicleClasses: ["cargo"],
+            requiredCapabilities: ["cargo"],
+            stopSensitivity: "normal",
+          },
+        }),
+      ],
+    }));
+
+    expect(result.missionPlans).toHaveLength(2);
+    expect(result.missionPlans.some((plan) =>
+      plan.chitIds.includes("chit-local-cargo") && plan.chitIds.includes("chit-long-haul-cargo")
+    )).toBe(false);
+  });
+
+  it("enforces compatibility exclusions and maintenance gating", () => {
+    const excludedScenario = freshScenario();
+    excludedScenario.chits = [];
+    excludedScenario.inventory.vehicles = excludedScenario.inventory.vehicles.filter(
+      (vehicle) => vehicle.id === "vehicle-cargo-1",
+    );
+    const excludedResult = planDispatch(createDispatchPlannerInput(excludedScenario, {
+      generatedChits: [
+        generatedChit({
+          id: "chit-forbidden-cargo",
+          kind: "local-cargo",
+          requirements: {
+            requiredVehicleClasses: ["cargo"],
+            forbiddenVehicleClasses: ["cargo"],
+            requiredCapabilities: ["cargo"],
+            stopSensitivity: "normal",
+          },
+        }),
+      ],
+    }));
+
+    expect(excludedResult.missionPlans).toHaveLength(0);
+    expect(excludedResult.candidates.some((candidate) =>
+      candidate.match.forbiddenCapabilities.includes("cargo")
+    )).toBe(true);
+
+    const maintenanceScenario = freshScenario();
+    maintenanceScenario.chits = [];
+    maintenanceScenario.inventory.vehicles = maintenanceScenario.inventory.vehicles
+      .filter((vehicle) => vehicle.id === "vehicle-cargo-1")
+      .map((vehicle) => ({ ...vehicle, state: "maintenance" as const }));
+
+    const maintenanceResult = planDispatch(createDispatchPlannerInput(maintenanceScenario, {
+      generatedChits: [generatedChit({ id: "chit-maintenance-gated", kind: "local-cargo" })],
+    }));
+    expect(maintenanceResult.missionPlans).toHaveLength(0);
+    expect(maintenanceResult.deficiencyGates.map((gate) => gate.kind)).toContain("maintenance_required");
+  });
+
+  it("reuses a discrete resource after a non-overlapping reservation window", () => {
+    const scenario = freshScenario();
+    const commuter = scenario.chits.find((chit) => chit.id === "chit-commuter");
+    if (!commuter) {
+      throw new Error("fixture missing commuter chit");
+    }
+    scenario.chits = [
+      {
+        ...commuter,
+        id: "chit-commuter-early",
+        quantity: { passengers: 4 },
+        readyAt: "2026-07-10T00:00:00.000Z",
+        dueAt: "2026-07-10T00:04:00.000Z",
+      },
+      {
+        ...commuter,
+        id: "chit-commuter-late",
+        quantity: { passengers: 4 },
+        readyAt: "2026-07-10T00:10:00.000Z",
+        dueAt: "2026-07-10T00:16:00.000Z",
+      },
+    ];
+    scenario.inventory.vehicles = scenario.inventory.vehicles.filter(
+      (vehicle) => vehicle.id === "vehicle-commuter-1",
+    );
+
+    const result = planDispatch(createDispatchPlannerInput(scenario));
+    const assetReservations = result.reservations.filter(
+      (reservation) => reservation.resourceId === "asset:vehicle-commuter-1",
+    );
+
+    expect(result.missionPlans).toHaveLength(2);
+    expect(assetReservations).toHaveLength(2);
+    expect(Date.parse(assetReservations[0]?.endTime ?? "")).toBeLessThanOrEqual(
+      Date.parse(assetReservations[1]?.startTime ?? ""),
+    );
+  });
+
   it("reports actionable deficiencies for missing cargo capabilities and state of charge", () => {
     const scenario = freshScenario();
     scenario.chits = [];
@@ -144,6 +317,7 @@ describe("ATOS dispatch planner", () => {
       expect.arrayContaining(["missing_capability", "state_of_charge"]),
     );
     expect(result.recommendations.some((recommendation) => recommendation.kind === "add_service_asset")).toBe(true);
+    expect(result.recommendations.every((recommendation) => recommendation.deficiencyIds.length > 0)).toBe(true);
   });
 
   it("uses power analysis as a planning launch gate without simulating movement", () => {

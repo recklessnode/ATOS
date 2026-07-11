@@ -128,6 +128,15 @@ export type DispatchWorker = {
   source: "vehicle" | "station-zone" | "synthetic-station" | "transient";
 };
 
+export type DispatchChitGroup = {
+  id: StableId;
+  chitIds: StableId[];
+  chits: DispatchChit[];
+  manifestKind: "passenger" | "cargo" | "mixed" | "battery" | "maintenance" | "infrastructure" | "repositioning";
+  compatible: boolean;
+  compatibilityReasons: string[];
+};
+
 export type CapabilityMatch = {
   eligible: boolean;
   score: number;
@@ -209,6 +218,7 @@ export type MissionPlanStep = {
 export type MissionPlan = {
   id: StableId;
   chitId: StableId;
+  chitIds: StableId[];
   state: "planned" | "delayed";
   superWorkerId: StableId;
   workerIds: StableId[];
@@ -285,7 +295,9 @@ export type DispatchPlannerInput = {
 
 export type DispatchCandidate = {
   chitId: StableId;
+  chitIds: StableId[];
   workerId: StableId;
+  workerIds: StableId[];
   supportWorkerIds: StableId[];
   assetIds: StableId[];
   match: CapabilityMatch;

@@ -11,6 +11,7 @@ import type {
   DispatchAsset,
   DispatchCandidate,
   DispatchChit,
+  DispatchChitGroup,
   DispatchPlannerInput,
   DispatchPlannerOptions,
   DispatchPlannerResult,
@@ -26,13 +27,10 @@ import type {
 } from "./types";
 
 type CandidateEvaluation = DispatchCandidate & {
-  worker: DispatchWorker;
+  group: DispatchChitGroup;
+  primaryWorker: DispatchWorker;
+  primaryWorkers: DispatchWorker[];
   supportWorkers: DispatchWorker[];
-};
-
-type ReservationCapacityIndex = {
-  used: Map<StableId, number>;
-  capacity: Map<StableId, number>;
 };
 
 export function createDispatchPlannerInput(
@@ -70,7 +68,8 @@ export function planDispatch(input: DispatchPlannerInput): DispatchPlannerResult
   const powerGate = evaluatePowerLaunchGate(powerAnalysis, assets);
   const assetIndex = assetById(assets);
   const vehicleWorkers = workers.filter((worker) => worker.source === "vehicle").sort(compareById);
-  const capacityIndex = reservationCapacityIndex(scenario);
+  const resourceCapacity = reservationCapacityIndex(scenario);
+  const pendingGroups = groupDispatchChits(normalizedChits);
 
   const allCandidates: DispatchCandidate[] = [];
   const transientSuperWorkers: TransientSuperWorker[] = [];
@@ -78,11 +77,13 @@ export function planDispatch(input: DispatchPlannerInput): DispatchPlannerResult
   const missionPlans: MissionPlan[] = [];
   const deficiencyGates: DeficiencyGate[] = [];
 
-  for (const chit of normalizedChits) {
+  for (let groupIndex = 0; groupIndex < pendingGroups.length; groupIndex += 1) {
+    const group = pendingGroups[groupIndex];
     const evaluations = vehicleWorkers
       .map((worker) => evaluateCandidate({
-        chit,
-        worker,
+        group,
+        primaryWorker: worker,
+        vehicleWorkers,
         workers,
         assets,
         powerGate,
@@ -93,23 +94,27 @@ export function planDispatch(input: DispatchPlannerInput): DispatchPlannerResult
     allCandidates.push(...evaluations.map(stripCandidateRuntime));
     const eligible = evaluations.filter((candidate) => candidate.match.eligible && candidate.route.reachable);
     const launchable = eligible.filter((candidate) => candidate.launchGate.status !== "blocked");
-    const chosen = launchable.find((candidate) =>
-      reservationsAvailable(candidate, chit, scenario, capacityIndex)
-    );
+    const window = planningWindowForGroup(group, generatedAt, launchable[0]?.route);
+    const chosen = launchable.find((candidate) => reservationsAvailable(candidate, group, window, reservations, resourceCapacity));
 
     if (!chosen) {
-      deficiencyGates.push(...deficienciesForUnplannedChit(chit, evaluations));
+      if (group.chits.length > 1) {
+        pendingGroups.splice(groupIndex + 1, 0, ...group.chits.map(singleChitGroup));
+        continue;
+      }
+      deficiencyGates.push(...deficienciesForUnplannedGroup(group, evaluations));
       continue;
     }
 
-    reserveCandidate(chosen, chit, scenario, generatedAt, reservations, capacityIndex);
-    const superWorker = buildTransientSuperWorker(chit, chosen);
+    const chosenWindow = planningWindowForGroup(group, generatedAt, chosen.route);
+    reserveCandidate(chosen, group, chosenWindow, reservations);
+    const superWorker = buildTransientSuperWorker(group, chosen);
     transientSuperWorkers.push(superWorker);
-    const missionPlan = buildMissionPlan(chit, chosen, superWorker, generatedAt, reservations);
+    const missionPlan = buildMissionPlan(group, chosen, superWorker, chosenWindow, reservations);
     missionPlans.push(missionPlan);
 
     if (chosen.launchGate.status === "delayed") {
-      deficiencyGates.push(powerDeficiencyForChit(chit, chosen.launchGate, "power_delayed", "warning"));
+      deficiencyGates.push(powerDeficiencyForGroup(group, chosen.launchGate, "power_delayed", "warning"));
     }
 
     markAssetsUsed(chosen, assetIndex);
@@ -145,89 +150,333 @@ export function planDispatch(input: DispatchPlannerInput): DispatchPlannerResult
   };
 }
 
+type PlanningWindow = {
+  startTime: string;
+  endTime: string;
+};
+
+function groupDispatchChits(chits: readonly DispatchChit[]): DispatchChitGroup[] {
+  const groups: DispatchChitGroup[] = [];
+  for (const chit of chits) {
+    const target = groups.find((group) => canJoinGroup(group, chit).compatible);
+    if (target) {
+      target.chits.push(chit);
+      target.chits.sort(compareChitsForGroup);
+      target.chitIds = target.chits.map((groupChit) => groupChit.id);
+      target.id = groupIdForChits(target.chits);
+      target.manifestKind = manifestKindForChits(target.chits);
+      continue;
+    }
+    groups.push({
+      id: groupIdForChits([chit]),
+      chitIds: [chit.id],
+      chits: [chit],
+      manifestKind: manifestKindForChits([chit]),
+      compatible: true,
+      compatibilityReasons: [],
+    });
+  }
+  return groups.sort((left, right) => compareChitsForGroup(left.chits[0], right.chits[0]));
+}
+
+function singleChitGroup(chit: DispatchChit): DispatchChitGroup {
+  return {
+    id: groupIdForChits([chit]),
+    chitIds: [chit.id],
+    chits: [chit],
+    manifestKind: manifestKindForChits([chit]),
+    compatible: true,
+    compatibilityReasons: [],
+  };
+}
+
+function canJoinGroup(group: DispatchChitGroup, chit: DispatchChit): { compatible: boolean; reasons: string[] } {
+  const candidateChits = [...group.chits, chit].sort(compareChitsForGroup);
+  const reasons: string[] = [];
+  if (candidateChits.length > 4) {
+    reasons.push("Group exceeds deterministic manifest limit");
+  }
+  if (!sameStationPair(candidateChits)) {
+    reasons.push("Grouped chits must share origin and destination stations");
+  }
+  if (!timeWindowsIntersect(candidateChits)) {
+    reasons.push("Grouped chits do not have overlapping ready/due windows");
+  }
+  if (!manifestMixAllowed(candidateChits)) {
+    reasons.push("Grouped chits have incompatible service classes");
+  }
+  return { compatible: reasons.length === 0, reasons };
+}
+
+function manifestMixAllowed(chits: readonly DispatchChit[]): boolean {
+  const kinds = new Set(chits.map((chit) => chit.kind));
+  const manifestKinds = new Set(chits.map((chit) => manifestKindForChits([chit])));
+  if (manifestKinds.size === 1) {
+    if (manifestKinds.has("passenger")) {
+      return kinds.size === 1;
+    }
+    if (manifestKinds.has("cargo")) {
+      return cargoKindsCompatible(chits);
+    }
+    return kinds.size === 1;
+  }
+  if (manifestKinds.size === 2 && manifestKinds.has("passenger") && manifestKinds.has("cargo")) {
+    return chits.every((chit) =>
+      chit.requirements.stopSensitivity === "normal" &&
+      (chit.kind === "commuter-passenger" || chit.kind === "local-cargo" || chit.kind === "parcel-cargo")
+    );
+  }
+  return false;
+}
+
+function cargoKindsCompatible(chits: readonly DispatchChit[]): boolean {
+  const cargoKinds = new Set(chits.map((chit) => chit.kind));
+  if ([...cargoKinds].some((kind) => ["hazard-cargo", "perishable-cargo", "bulk-cargo"].includes(kind))) {
+    return cargoKinds.size === 1;
+  }
+  if (cargoKinds.has("long-haul-cargo")) {
+    return cargoKinds.size === 1;
+  }
+  return [...cargoKinds].every((kind) =>
+    ["local-cargo", "regional-cargo", "parcel-cargo", "maintenance-supplies"].includes(kind)
+  );
+}
+
+function sameStationPair(chits: readonly DispatchChit[]): boolean {
+  const first = chits[0];
+  return Boolean(first) && chits.every((chit) =>
+    chit.origin.stationId === first.origin.stationId &&
+    chit.destination.stationId === first.destination.stationId
+  );
+}
+
+function timeWindowsIntersect(chits: readonly DispatchChit[]): boolean {
+  const readyAt = Math.max(...chits.map((chit) => Date.parse(chit.readyAt)));
+  const dueAt = Math.min(...chits.map((chit) => Date.parse(chit.dueAt)));
+  return readyAt <= dueAt;
+}
+
+function manifestKindForChits(chits: readonly DispatchChit[]): DispatchChitGroup["manifestKind"] {
+  const kinds = new Set(chits.map((chit) => {
+    if (chit.kind.includes("passenger")) {
+      return "passenger";
+    }
+    if (chit.kind.includes("cargo") || chit.kind === "maintenance-supplies") {
+      return "cargo";
+    }
+    if (chit.kind === "battery-support") {
+      return "battery";
+    }
+    return chit.kind;
+  }));
+  if (kinds.size > 1) {
+    return "mixed";
+  }
+  return [...kinds][0] as DispatchChitGroup["manifestKind"];
+}
+
+function groupIdForChits(chits: readonly DispatchChit[]): StableId {
+  return `group:${chits.map((chit) => chit.id).sort().join("+")}`;
+}
+
+function compareChitsForGroup(left: DispatchChit | undefined, right: DispatchChit | undefined): number {
+  if (!left || !right) {
+    return left ? -1 : right ? 1 : 0;
+  }
+  const priorityCompare = right.priority - left.priority;
+  if (priorityCompare !== 0) {
+    return priorityCompare;
+  }
+  const dueCompare = Date.parse(left.dueAt) - Date.parse(right.dueAt);
+  return dueCompare === 0 ? left.id.localeCompare(right.id) : dueCompare;
+}
+
+function routeForGroup(group: DispatchChitGroup, input: DispatchPlannerInput): GuidewayRoute {
+  const endpoints = uniqueEndpoints(group.chits.flatMap((chit) => [chit.origin, chit.destination]));
+  if (endpoints.length === 0) {
+    return routeBetweenEndpoints(input.guideway, group.chits[0].origin, group.chits[0].destination);
+  }
+  if (endpoints.length === 1) {
+    return routeBetweenEndpoints(input.guideway, endpoints[0], endpoints[0]);
+  }
+
+  const segments = endpoints.slice(1).map((endpoint, index) =>
+    routeBetweenEndpoints(input.guideway, endpoints[index], endpoint)
+  );
+  if (segments.some((route) => !route.reachable)) {
+    return segments.find((route) => !route.reachable) as GuidewayRoute;
+  }
+  return {
+    originNodeId: segments[0].originNodeId,
+    destinationNodeId: segments[segments.length - 1].destinationNodeId,
+    pathNodeIds: uniqueSorted(segments.flatMap((route) => route.pathNodeIds)),
+    linkIds: uniqueSorted(segments.flatMap((route) => route.linkIds)),
+    hopCount: segments.reduce((sum, route) => sum + route.hopCount, 0),
+    cost: round(segments.reduce((sum, route) => sum + route.cost, 0)),
+    reachable: true,
+  };
+}
+
+function planningWindowForGroup(
+  group: DispatchChitGroup,
+  generatedAt: string,
+  route: GuidewayRoute = {
+    originNodeId: "pending",
+    destinationNodeId: "pending",
+    pathNodeIds: [],
+    linkIds: [],
+    hopCount: 0,
+    cost: 0,
+    reachable: true,
+  },
+): PlanningWindow {
+  const startTime = new Date(Math.max(Date.parse(generatedAt), ...group.chits.map((chit) => Date.parse(chit.readyAt)))).toISOString();
+  return {
+    startTime,
+    endTime: endTimeFor(startTime, route),
+  };
+}
+
+function reservationsOverlap(left: PlanningWindow, right: Pick<DispatchReservation, "startTime" | "endTime">): boolean {
+  return Date.parse(left.startTime) < Date.parse(right.endTime) && Date.parse(right.startTime) < Date.parse(left.endTime);
+}
+
+function uniqueEndpoints(endpoints: readonly DispatchChit["origin"][]): DispatchChit["origin"][] {
+  const byKey = new Map<string, DispatchChit["origin"]>();
+  for (const endpoint of endpoints) {
+    byKey.set(`${endpoint.stationId}:${endpoint.serviceZoneId ?? ""}`, endpoint);
+  }
+  return [...byKey.values()].sort((left, right) =>
+    `${left.stationId}:${left.serviceZoneId ?? ""}`.localeCompare(`${right.stationId}:${right.serviceZoneId ?? ""}`)
+  );
+}
+
 function evaluateCandidate(input: {
-  chit: DispatchChit;
-  worker: DispatchWorker;
+  group: DispatchChitGroup;
+  primaryWorker: DispatchWorker;
+  vehicleWorkers: readonly DispatchWorker[];
   workers: readonly DispatchWorker[];
   assets: readonly DispatchAsset[];
   powerGate: PowerLaunchGate;
   input: DispatchPlannerInput;
 }): CandidateEvaluation {
-  const supportWorkers = supportWorkersForChit(input.chit, input.workers);
-  const match = matchWorkerToChit(input.chit, input.worker, supportWorkers, input.assets);
-  const route = routeBetweenEndpoints(input.input.guideway, input.chit.origin, input.chit.destination);
-  const score = scoreCandidate(input.chit, input.worker, supportWorkers, route, input.powerGate, match);
+  const supportWorkers = supportWorkersForGroup(input.group, input.workers);
+  const primaryWorkers = selectPrimaryWorkersForGroup(input.group, input.primaryWorker, input.vehicleWorkers);
+  const match = matchWorkersToGroup(input.group, primaryWorkers, supportWorkers, input.assets);
+  const route = routeForGroup(input.group, input.input);
+  const score = scoreCandidate(input.group, primaryWorkers, supportWorkers, route, input.powerGate, match);
   const supportWorkerIds = supportWorkers.map((worker) => worker.id).sort();
+  const primaryWorkerIds = primaryWorkers.map((worker) => worker.id).sort();
   const assetIds = uniqueSorted([
-    ...input.worker.assetIds,
+    ...primaryWorkers.flatMap((worker) => worker.assetIds),
     ...supportWorkers.flatMap((worker) => worker.assetIds),
   ]);
 
   return {
-    chitId: input.chit.id,
-    workerId: input.worker.id,
+    chitId: input.group.chits[0]?.id ?? input.group.id,
+    chitIds: [...input.group.chitIds],
+    workerId: input.primaryWorker.id,
+    workerIds: primaryWorkerIds,
     supportWorkerIds,
     assetIds,
     match,
     route,
     launchGate: input.powerGate,
     score,
-    worker: input.worker,
+    group: input.group,
+    primaryWorker: input.primaryWorker,
+    primaryWorkers,
     supportWorkers,
   };
 }
 
-function supportWorkersForChit(
-  chit: DispatchChit,
+function supportWorkersForGroup(
+  group: DispatchChitGroup,
   workers: readonly DispatchWorker[],
 ): DispatchWorker[] {
-  const zoneWorkers = supportWorkersForServiceZones(workers, [
+  const zoneIds = uniqueSorted(group.chits.flatMap((chit) => [
     chit.origin.serviceZoneId,
     chit.destination.serviceZoneId,
-  ]);
-  const supportCapabilities = new Set(requiredCapabilitiesForKind(chit.kind));
-  return zoneWorkers
-    .filter((worker) =>
-      worker.capabilities.some((capability) => supportCapabilities.has(capability)) ||
-      worker.capabilities.includes("passenger-boarding") ||
-      worker.capabilities.includes("cargo-handling") ||
-      worker.capabilities.includes("charging")
-    )
-    .sort(compareById);
+  ].filter((id): id is StableId => Boolean(id))));
+  const zoneWorkers = supportWorkersForServiceZones(workers, zoneIds);
+  const selected = new Map<StableId, DispatchWorker>();
+
+  for (const zoneId of zoneIds) {
+    for (const capability of requiredSupportCapabilities(group)) {
+      const worker = zoneWorkers.find((candidate) =>
+        candidate.serviceZoneId === zoneId && candidate.capabilities.includes(capability)
+      );
+      if (worker) {
+        selected.set(worker.id, worker);
+      }
+    }
+  }
+
+  return [...selected.values()].sort(compareById);
 }
 
-function matchWorkerToChit(
-  chit: DispatchChit,
-  worker: DispatchWorker,
+function selectPrimaryWorkersForGroup(
+  group: DispatchChitGroup,
+  primaryWorker: DispatchWorker,
+  vehicleWorkers: readonly DispatchWorker[],
+): DispatchWorker[] {
+  const selected = new Map<StableId, DispatchWorker>([[primaryWorker.id, primaryWorker]]);
+  let aggregate = aggregateCapacity([...selected.values()]);
+  let capabilities = aggregateCapabilities([...selected.values()]);
+
+  for (const chit of group.chits) {
+    if (workerSetCoversChit(chit, aggregate, capabilities)) {
+      continue;
+    }
+    const nextWorker = vehicleWorkers.find((worker) =>
+      !selected.has(worker.id) &&
+      worker.state === "available" &&
+      singleWorkerCanServeChit(worker, chit)
+    );
+    if (nextWorker) {
+      selected.set(nextWorker.id, nextWorker);
+      aggregate = aggregateCapacity([...selected.values()]);
+      capabilities = aggregateCapabilities([...selected.values()]);
+    }
+  }
+
+  return [...selected.values()].sort(compareById);
+}
+
+function matchWorkersToGroup(
+  group: DispatchChitGroup,
+  primaryWorkers: readonly DispatchWorker[],
   supportWorkers: readonly DispatchWorker[],
   assets: readonly DispatchAsset[],
 ): CapabilityMatch {
   const combinedCapabilities = new Set([
-    ...worker.capabilities,
+    ...primaryWorkers.flatMap((worker) => worker.capabilities),
     ...supportWorkers.flatMap((supportWorker) => supportWorker.capabilities),
   ]);
-  const requiredCapabilities = uniqueSorted([
+  const primaryCapabilities = new Set(primaryWorkers.flatMap((worker) => worker.capabilities));
+  const requiredCapabilities = uniqueSorted(group.chits.flatMap((chit) => [
     ...chit.requirements.requiredCapabilities,
     ...requiredCapabilitiesForKind(chit.kind),
-  ]);
-  const requiredVehicleClasses = uniqueSorted([
+  ]));
+  const requiredVehicleClasses = uniqueSorted(group.chits.flatMap((chit) => [
     ...chit.requirements.requiredVehicleClasses,
     ...requiredVehicleClassesForKind(chit.kind),
-  ]);
-  const forbiddenVehicleClasses = chit.requirements.forbiddenVehicleClasses ?? [];
+  ]));
+  const forbiddenVehicleClasses = uniqueSorted(group.chits.flatMap((chit) => chit.requirements.forbiddenVehicleClasses ?? []));
   const missingCapabilities = requiredCapabilities.filter((capability) => !combinedCapabilities.has(capability));
-  const missingVehicleClasses = requiredVehicleClasses.filter((vehicleClass) => !worker.capabilities.includes(vehicleClass));
+  const missingVehicleClasses = requiredVehicleClasses.filter((vehicleClass) => !primaryCapabilities.has(vehicleClass));
   const forbiddenCapabilities = forbiddenVehicleClasses.filter((vehicleClass) =>
-    worker.capabilities.includes(vehicleClass)
+    primaryCapabilities.has(vehicleClass)
   );
-  const capacityDeficits = capacityDeficitsForChit(chit, worker, assets);
-  const compatibilityWarnings = compatibilityWarningsForChit(chit, supportWorkers);
+  const capacityDeficits = capacityDeficitsForGroup(group, primaryWorkers, assets);
+  const compatibilityWarnings = compatibilityWarningsForGroup(group, supportWorkers);
   const reasons = [
+    ...group.compatibilityReasons,
     ...missingCapabilities.map((capability) => `Missing capability ${capability}`),
     ...missingVehicleClasses.map((vehicleClass) => `Missing vehicle class ${vehicleClass}`),
     ...forbiddenCapabilities.map((vehicleClass) => `Forbidden vehicle class ${vehicleClass}`),
     ...capacityDeficits,
-    ...(worker.state !== "available" ? [`Worker state is ${worker.state}`] : []),
+    ...primaryWorkers.filter((worker) => worker.state !== "available").map((worker) => `Worker ${worker.id} state is ${worker.state}`),
   ];
 
   return {
@@ -273,33 +522,179 @@ function capacityDeficitsForChit(
   return deficits;
 }
 
-function compatibilityWarningsForChit(
-  chit: DispatchChit,
+function capacityDeficitsForGroup(
+  group: DispatchChitGroup,
+  primaryWorkers: readonly DispatchWorker[],
+  assets: readonly DispatchAsset[],
+): string[] {
+  const deficits = capacityDeficitsForChit(aggregateChitForGroup(group), {
+    id: `aggregate-worker:${group.id}`,
+    kind: "composite",
+    label: group.id,
+    assetIds: primaryWorkers.flatMap((worker) => worker.assetIds),
+    state: primaryWorkers.every((worker) => worker.state === "available") ? "available" : "reserved",
+    capabilities: [...aggregateCapabilities(primaryWorkers)],
+    capacity: aggregateCapacity(primaryWorkers),
+    source: "transient",
+  }, assets);
+
+  const aggregate = aggregateCapacity(primaryWorkers);
+  const capabilities = aggregateCapabilities(primaryWorkers);
+  for (const chit of group.chits) {
+    if (!workerSetCoversChit(chit, aggregate, capabilities)) {
+      deficits.push(`Grouped manifest cannot cover ${chit.id}`);
+    }
+  }
+
+  return uniqueSorted(deficits);
+}
+
+function compatibilityWarningsForGroup(
+  group: DispatchChitGroup,
   supportWorkers: readonly DispatchWorker[],
 ): string[] {
-  if (chit.kind === "hazard-cargo" && !supportWorkers.some((worker) => worker.capabilities.includes("hazard-handling"))) {
+  if (group.chits.some((chit) => chit.kind === "hazard-cargo") && !supportWorkers.some((worker) => worker.capabilities.includes("hazard-handling"))) {
     return ["Hazard cargo requires a hazard-capable depot support worker"];
   }
-  if (chit.kind === "perishable-cargo" && !supportWorkers.some((worker) => worker.capabilities.includes("cold-chain"))) {
+  if (group.chits.some((chit) => chit.kind === "perishable-cargo") && !supportWorkers.some((worker) => worker.capabilities.includes("cold-chain"))) {
     return ["Perishable cargo requires a cold-chain support worker"];
   }
   return [];
 }
 
-function scoreCandidate(
+function requiredSupportCapabilities(group: DispatchChitGroup): StableId[] {
+  const capabilities = new Set<StableId>();
+  for (const chit of group.chits) {
+    if (chit.kind.includes("passenger")) {
+      capabilities.add("passenger-boarding");
+    }
+    if (chit.kind.includes("cargo") || chit.kind === "maintenance-supplies") {
+      capabilities.add("cargo-handling");
+    }
+    if (chit.kind === "battery-support") {
+      capabilities.add("charging");
+    }
+    if (chit.kind === "maintenance") {
+      capabilities.add("maintenance");
+    }
+  }
+  return [...capabilities].sort();
+}
+
+function aggregateChitForGroup(group: DispatchChitGroup): DispatchChit {
+  const chits = group.chits;
+  const first = chits[0];
+  return {
+    ...first,
+    id: group.id,
+    sourceChitId: group.id,
+    contractId: `contract:${group.id}`,
+    priority: Math.max(...chits.map((chit) => chit.priority)),
+    quantity: aggregateQuantity(chits),
+    requirements: {
+      requiredVehicleClasses: uniqueSorted(chits.flatMap((chit) => [
+        ...chit.requirements.requiredVehicleClasses,
+        ...requiredVehicleClassesForKind(chit.kind),
+      ])),
+      forbiddenVehicleClasses: uniqueSorted(chits.flatMap((chit) => chit.requirements.forbiddenVehicleClasses ?? [])),
+      requiredCapabilities: uniqueSorted(chits.flatMap((chit) => [
+        ...chit.requirements.requiredCapabilities,
+        ...requiredCapabilitiesForKind(chit.kind),
+      ])),
+      stopSensitivity: chits.some((chit) => chit.requirements.stopSensitivity === "direct")
+        ? "direct"
+        : chits.some((chit) => chit.requirements.stopSensitivity === "express")
+          ? "express"
+          : "normal",
+    },
+    penalties: {
+      waitPerMinute: Math.max(...chits.map((chit) => chit.penalties.waitPerMinute)),
+      latePerMinute: Math.max(...chits.map((chit) => chit.penalties.latePerMinute)),
+      transfer: Math.max(...chits.map((chit) => chit.penalties.transfer)),
+      handling: Math.max(...chits.map((chit) => chit.penalties.handling)),
+    },
+    readyAt: new Date(Math.max(...chits.map((chit) => Date.parse(chit.readyAt)))).toISOString(),
+    dueAt: new Date(Math.min(...chits.map((chit) => Date.parse(chit.dueAt)))).toISOString(),
+    rankScore: Math.max(...chits.map((chit) => chit.rankScore)),
+  };
+}
+
+function aggregateQuantity(chits: readonly DispatchChit[]): DispatchChit["quantity"] {
+  return {
+    passengers: sumOptional(chits, (chit) => chit.quantity.passengers),
+    massKg: sumOptional(chits, (chit) => chit.quantity.massKg),
+    volumeLiters: sumOptional(chits, (chit) => chit.quantity.volumeLiters),
+    energyWh: sumOptional(chits, (chit) => chit.quantity.energyWh),
+  };
+}
+
+function aggregateCapacity(workers: readonly DispatchWorker[]): DispatchWorker["capacity"] {
+  return {
+    passengers: sumOptional(workers, (worker) => worker.capacity.passengers),
+    massKg: sumOptional(workers, (worker) => worker.capacity.massKg),
+    volumeLiters: sumOptional(workers, (worker) => worker.capacity.volumeLiters),
+    energyWh: sumOptional(workers, (worker) => worker.capacity.energyWh),
+  };
+}
+
+function aggregateCapabilities(workers: readonly DispatchWorker[]): Set<StableId> {
+  return new Set(workers.flatMap((worker) => worker.capabilities));
+}
+
+function workerSetCoversChit(
   chit: DispatchChit,
-  worker: DispatchWorker,
+  capacity: DispatchWorker["capacity"],
+  capabilities: ReadonlySet<StableId>,
+): boolean {
+  return [
+    ...chit.requirements.requiredCapabilities,
+    ...requiredCapabilitiesForKind(chit.kind),
+    ...chit.requirements.requiredVehicleClasses,
+    ...requiredVehicleClassesForKind(chit.kind),
+  ].every((capability) => capabilities.has(capability)) &&
+    quantityFits(chit.quantity.passengers, capacity.passengers) &&
+    quantityFits(chit.quantity.massKg, capacity.massKg) &&
+    quantityFits(chit.quantity.volumeLiters, capacity.volumeLiters) &&
+    quantityFits(chit.quantity.energyWh, capacity.energyWh);
+}
+
+function singleWorkerCanServeChit(worker: DispatchWorker, chit: DispatchChit): boolean {
+  return workerSetCoversChit(chit, worker.capacity, new Set(worker.capabilities));
+}
+
+function minimumPrimaryWorkerCount(group: DispatchChitGroup): number {
+  const requiredClasses = new Set(group.chits.flatMap((chit) => [
+    ...chit.requirements.requiredVehicleClasses,
+    ...requiredVehicleClassesForKind(chit.kind),
+  ]));
+  return Math.max(1, requiredClasses.size);
+}
+
+function quantityFits(required: number | undefined, available: number | undefined): boolean {
+  return !required || required <= 0 || (available ?? 0) >= required;
+}
+
+function sumOptional<T>(values: readonly T[], read: (value: T) => number | undefined): number | undefined {
+  const sum = values.reduce((total, value) => total + (read(value) ?? 0), 0);
+  return sum > 0 ? sum : undefined;
+}
+
+function scoreCandidate(
+  group: DispatchChitGroup,
+  primaryWorkers: readonly DispatchWorker[],
   supportWorkers: readonly DispatchWorker[],
   route: GuidewayRoute,
   gate: PowerLaunchGate,
   match: CapabilityMatch,
 ): DispatchScoreBreakdown {
-  const capacityHeadroom = capacityHeadroomScore(chit, worker);
+  const aggregateChit = aggregateChitForGroup(group);
+  const capacityHeadroom = capacityHeadroomScore(aggregateChit, aggregateCapacity(primaryWorkers));
   const routeEfficiency = route.reachable ? Math.max(0, 100 - route.cost * 8) : 0;
   const powerReadiness = gate.status === "allowed" ? 100 : gate.status === "delayed" ? 45 : 0;
-  const deadlineUrgency = Math.max(0, 100 - Math.max(0, Date.parse(chit.dueAt) - Date.parse(chit.readyAt)) / 60_000);
-  const reservationPenalty = supportWorkers.length > 2 ? -5 : 0;
-  const priority = Math.min(100, chit.priority);
+  const deadlineUrgency = Math.max(0, 100 - Math.max(0, Date.parse(aggregateChit.dueAt) - Date.parse(aggregateChit.readyAt)) / 60_000);
+  const reservationPenalty = (supportWorkers.length > 2 ? -5 : 0) -
+    Math.max(0, primaryWorkers.length - minimumPrimaryWorkerCount(group)) * 18;
+  const priority = Math.min(100, aggregateChit.priority);
   const capabilityFit = match.score;
   const total = round(
     priority * 0.24 +
@@ -325,76 +720,70 @@ function scoreCandidate(
 
 function reservationsAvailable(
   candidate: CandidateEvaluation,
-  chit: DispatchChit,
-  scenario: ScenarioDocumentV1,
-  capacityIndex: ReservationCapacityIndex,
+  group: DispatchChitGroup,
+  window: PlanningWindow,
+  reservations: readonly DispatchReservation[],
+  resourceCapacity: ReadonlyMap<StableId, number>,
 ): boolean {
-  return reservationResources(candidate, chit).every((resource) => {
-    const capacity = capacityIndex.capacity.get(resource) ?? capacityForResource(resource, scenario);
-    const used = capacityIndex.used.get(resource) ?? 0;
-    return used < capacity;
+  return reservationResources(candidate, group).every((resourceId) => {
+    const overlappingReservations = reservations.filter((reservation) =>
+      reservation.resourceId === resourceId && reservationsOverlap(window, reservation)
+    );
+    return overlappingReservations.length < (resourceCapacity.get(resourceId) ?? 1);
   });
 }
 
 function reserveCandidate(
   candidate: CandidateEvaluation,
-  chit: DispatchChit,
-  scenario: ScenarioDocumentV1,
-  generatedAt: string,
+  group: DispatchChitGroup,
+  window: PlanningWindow,
   reservations: DispatchReservation[],
-  capacityIndex: ReservationCapacityIndex,
 ): void {
-  const missionPlanId = missionPlanIdFor(chit, candidate);
-  const startTime = startTimeFor(chit, generatedAt);
-  const endTime = endTimeFor(startTime, candidate.route);
-  for (const resourceId of reservationResources(candidate, chit)) {
-    capacityIndex.used.set(resourceId, (capacityIndex.used.get(resourceId) ?? 0) + 1);
-    capacityIndex.capacity.set(resourceId, capacityForResource(resourceId, scenario));
+  const missionPlanId = missionPlanIdFor(group, candidate);
+  for (const resourceId of reservationResources(candidate, group)) {
     reservations.push({
       id: `reservation:${missionPlanId}:${resourceId}`,
       missionPlanId,
       resourceType: reservationTypeForResource(resourceId),
       resourceId,
-      startTime,
-      endTime,
-      chitIds: [chit.id],
+      startTime: window.startTime,
+      endTime: window.endTime,
+      chitIds: [...group.chitIds],
     });
   }
 }
 
 function buildTransientSuperWorker(
-  chit: DispatchChit,
+  group: DispatchChitGroup,
   candidate: CandidateEvaluation,
 ): TransientSuperWorker {
   const supportWorkerIds = candidate.supportWorkers.map((worker) => worker.id).sort();
   return {
-    id: superWorkerIdFor(chit, candidate),
+    id: superWorkerIdFor(group, candidate),
     kind: "transient-super-worker",
-    label: `${chit.id} consist`,
-    chitIds: [chit.id],
-    workerIds: [candidate.worker.id, ...supportWorkerIds].sort(),
+    label: `${group.id} consist`,
+    chitIds: [...group.chitIds],
+    workerIds: [...candidate.workerIds, ...supportWorkerIds].sort(),
     assetIds: [...candidate.assetIds].sort(),
     capabilities: uniqueSorted([
-      ...candidate.worker.capabilities,
+      ...candidate.primaryWorkers.flatMap((worker) => worker.capabilities),
       ...candidate.supportWorkers.flatMap((worker) => worker.capabilities),
     ]),
-    capacity: { ...candidate.worker.capacity },
-    primaryWorkerId: candidate.worker.id,
+    capacity: aggregateCapacity(candidate.primaryWorkers),
+    primaryWorkerId: candidate.primaryWorker.id,
     supportWorkerIds,
-    formationReason: `Formed deterministically for ${chit.kind} using ${candidate.worker.id}.`,
+    formationReason: `Formed deterministically for ${group.manifestKind} manifest ${group.chitIds.join(", ")}.`,
   };
 }
 
 function buildMissionPlan(
-  chit: DispatchChit,
+  group: DispatchChitGroup,
   candidate: CandidateEvaluation,
   superWorker: TransientSuperWorker,
-  generatedAt: string,
+  window: PlanningWindow,
   reservations: readonly DispatchReservation[],
 ): MissionPlan {
-  const id = missionPlanIdFor(chit, candidate);
-  const startsAt = startTimeFor(chit, generatedAt);
-  const endsAt = endTimeFor(startsAt, candidate.route);
+  const id = missionPlanIdFor(group, candidate);
   const reservationIds = reservations
     .filter((reservation) => reservation.missionPlanId === id)
     .map((reservation) => reservation.id)
@@ -402,7 +791,8 @@ function buildMissionPlan(
 
   return {
     id,
-    chitId: chit.id,
+    chitId: group.chits[0]?.id ?? group.id,
+    chitIds: [...group.chitIds],
     state: candidate.launchGate.status === "delayed" ? "delayed" : "planned",
     superWorkerId: superWorker.id,
     workerIds: [...superWorker.workerIds],
@@ -411,63 +801,63 @@ function buildMissionPlan(
     launchGate: candidate.launchGate,
     reservationIds,
     score: candidate.score,
-    startsAt,
-    endsAt,
-    steps: missionSteps(chit, candidate, superWorker),
+    startsAt: window.startTime,
+    endsAt: window.endTime,
+    steps: missionSteps(group, candidate, superWorker),
   };
 }
 
 function missionSteps(
-  chit: DispatchChit,
+  group: DispatchChitGroup,
   candidate: CandidateEvaluation,
   superWorker: TransientSuperWorker,
 ): MissionPlanStep[] {
   return [
     {
-      id: `step:${chit.id}:stage`,
+      id: `step:${group.id}:stage`,
       label: "Stage persistent assets",
       resourceIds: superWorker.assetIds,
     },
     {
-      id: `step:${chit.id}:reserve-route`,
+      id: `step:${group.id}:reserve-route`,
       label: "Reserve guideway path",
       resourceIds: candidate.route.linkIds,
     },
     {
-      id: `step:${chit.id}:launch-gate`,
+      id: `step:${group.id}:launch-gate`,
       label: `Power launch gate: ${candidate.launchGate.status}`,
       resourceIds: candidate.launchGate.affectedPowerIds,
     },
   ];
 }
 
-function deficienciesForUnplannedChit(
-  chit: DispatchChit,
+function deficienciesForUnplannedGroup(
+  group: DispatchChitGroup,
   evaluations: readonly CandidateEvaluation[],
 ): DeficiencyGate[] {
   if (evaluations.some((candidate) => candidate.launchGate.status === "blocked")) {
-    return [powerDeficiencyForChit(chit, evaluations[0].launchGate, "power_blocked", "error")];
+    return [powerDeficiencyForGroup(group, evaluations[0].launchGate, "power_blocked", "error")];
   }
   if (evaluations.length === 0) {
     return [deficiency({
-      id: `deficiency:${chit.id}:no-candidate`,
+      id: `deficiency:${group.id}:no-candidate`,
       kind: "no_candidate",
       severity: "error",
-      message: `${chit.id} has no candidate worker.`,
+      message: `${group.id} has no candidate worker.`,
       action: "Add an asset with the required vehicle class and capabilities.",
-      chitIds: [chit.id],
+      chitIds: group.chitIds,
     })];
   }
 
   const routeFailures = evaluations.filter((candidate) => !candidate.route.reachable);
   if (routeFailures.length === evaluations.length) {
     return [deficiency({
-      id: `deficiency:${chit.id}:route`,
+      id: `deficiency:${group.id}:route`,
       kind: "route_unreachable",
       severity: "error",
-      message: `${chit.id} cannot reach its destination on the extracted guideway graph.`,
+      message: `${group.id} cannot reach its destination on the extracted guideway graph.`,
       action: "Add or rotate guideway tiles so the origin and destination service zones are connected.",
-      chitIds: [chit.id],
+      chitIds: group.chitIds,
       affectedIds: uniqueSorted(routeFailures.flatMap((candidate) => [
         candidate.route.originNodeId,
         candidate.route.destinationNodeId,
@@ -479,77 +869,77 @@ function deficienciesForUnplannedChit(
   const stateOfChargeDeficits = capacityDeficits.filter((item) => item.includes("state of charge"));
   if (stateOfChargeDeficits.length > 0) {
     return [deficiency({
-      id: `deficiency:${chit.id}:state-of-charge`,
+      id: `deficiency:${group.id}:state-of-charge`,
       kind: "state_of_charge",
       severity: "error",
-      message: `${chit.id} requires more onboard state of charge than any compatible asset has available.`,
+      message: `${group.id} requires more onboard state of charge than any compatible asset has available.`,
       action: "Recharge or stage a battery-support asset with enough usable state of charge.",
-      chitIds: [chit.id],
+      chitIds: group.chitIds,
       affectedIds: stateOfChargeDeficits,
     })];
   }
   const missingCapabilities = uniqueSorted(evaluations.flatMap((candidate) => candidate.match.missingCapabilities));
   if (missingCapabilities.length > 0) {
     return [deficiency({
-      id: `deficiency:${chit.id}:capability`,
+      id: `deficiency:${group.id}:capability`,
       kind: "missing_capability",
       severity: "error",
-      message: `${chit.id} requires capabilities that no candidate super-worker can supply.`,
+      message: `${group.id} requires capabilities that no candidate super-worker can supply.`,
       action: `Add assets with capabilities: ${missingCapabilities.join(", ")}.`,
-      chitIds: [chit.id],
+      chitIds: group.chitIds,
       affectedIds: missingCapabilities,
     })];
   }
   if (capacityDeficits.length > 0) {
     return [deficiency({
-      id: `deficiency:${chit.id}:capacity`,
+      id: `deficiency:${group.id}:capacity`,
       kind: "insufficient_capacity",
       severity: "error",
-      message: `${chit.id} exceeds available worker capacity.`,
+      message: `${group.id} exceeds available worker capacity.`,
       action: "Add a larger vehicle or split the chit before dispatch planning.",
-      chitIds: [chit.id],
+      chitIds: group.chitIds,
       affectedIds: capacityDeficits,
     })];
   }
 
   if (evaluations.some((candidate) => candidate.match.reasons.some((reason) => reason.includes("maintenance")))) {
     return [deficiency({
-      id: `deficiency:${chit.id}:maintenance`,
+      id: `deficiency:${group.id}:maintenance`,
       kind: "maintenance_required",
       severity: "error",
-      message: `${chit.id} only matched assets that are in maintenance.`,
+      message: `${group.id} only matched assets that are in maintenance.`,
       action: "Return a compatible asset to service or add another compatible asset.",
-      chitIds: [chit.id],
+      chitIds: group.chitIds,
       assetIds: evaluations.flatMap((candidate) => candidate.assetIds),
     })];
   }
 
   return [deficiency({
-    id: `deficiency:${chit.id}:reservation`,
+    id: `deficiency:${group.id}:reservation`,
     kind: "reservation_conflict",
     severity: "warning",
-    message: `${chit.id} has eligible candidates but all required discrete resources are already reserved.`,
+    message: `${group.id} has eligible candidates but all overlapping required resources are already reserved.`,
     action: "Stage an additional compatible asset or move one mission to a later planning window.",
-    chitIds: [chit.id],
+    chitIds: group.chitIds,
     assetIds: evaluations.flatMap((candidate) => candidate.assetIds),
   })];
 }
 
-function powerDeficiencyForChit(
-  chit: DispatchChit,
+function powerDeficiencyForGroup(
+  group: DispatchChitGroup,
   gate: PowerLaunchGate,
   kind: "power_blocked" | "power_delayed",
   severity: "warning" | "error",
 ): DeficiencyGate {
   return deficiency({
-    id: `deficiency:${chit.id}:${kind}`,
+    id: `deficiency:${group.id}:${kind}`,
     kind,
     severity,
-    message: `${chit.id} launch is ${gate.status}: ${gate.message}`,
+    message: `${group.id} launch is ${gate.status}: ${gate.message}`,
     action: gate.supportAssetIds.length > 0
       ? `Review supporting assets ${gate.supportAssetIds.join(", ")} and clear power diagnostics.`
       : "Add power support or fix the blocking power diagnostics before dispatch.",
-    chitIds: [chit.id],
+    chitIds: group.chitIds,
     assetIds: gate.supportAssetIds,
     affectedIds: gate.affectedPowerIds,
   });
@@ -620,17 +1010,19 @@ function baseRecommendation(
   };
 }
 
-function reservationResources(candidate: CandidateEvaluation, chit: DispatchChit): StableId[] {
+function reservationResources(candidate: CandidateEvaluation, group: DispatchChitGroup): StableId[] {
   return uniqueSorted([
-    ...candidate.worker.assetIds.map((assetId) => `asset:${assetId}`),
+    ...candidate.primaryWorkers.flatMap((worker) => worker.assetIds.map((assetId) => `asset:${assetId}`)),
     ...candidate.route.linkIds.map((linkId) => `guideway-link:${linkId}`),
-    ...(chit.origin.serviceZoneId ? [`station-zone:${chit.origin.serviceZoneId}`] : []),
-    ...(chit.destination.serviceZoneId ? [`station-zone:${chit.destination.serviceZoneId}`] : []),
+    ...group.chits.flatMap((chit) => [
+      chit.origin.serviceZoneId ? `station-zone:${chit.origin.serviceZoneId}` : undefined,
+      chit.destination.serviceZoneId ? `station-zone:${chit.destination.serviceZoneId}` : undefined,
+    ].filter((resourceId): resourceId is StableId => Boolean(resourceId))),
     `power-window:${candidate.launchGate.networkState}`,
   ]);
 }
 
-function reservationCapacityIndex(scenario: ScenarioDocumentV1): ReservationCapacityIndex {
+function reservationCapacityIndex(scenario: ScenarioDocumentV1): Map<StableId, number> {
   const capacity = new Map<StableId, number>();
   for (const zone of scenario.serviceZones) {
     capacity.set(`station-zone:${zone.id}`, zone.capacity);
@@ -641,17 +1033,15 @@ function reservationCapacityIndex(scenario: ScenarioDocumentV1): ReservationCapa
   for (const vehicle of scenario.inventory.vehicles) {
     capacity.set(`asset:${vehicle.id}`, 1);
   }
-  return { used: new Map(), capacity };
-}
-
-function capacityForResource(resourceId: StableId, scenario: ScenarioDocumentV1): number {
-  if (resourceId.startsWith("station-zone:")) {
-    return scenario.serviceZones.find((zone) => `station-zone:${zone.id}` === resourceId)?.capacity ?? 1;
-  }
-  if (resourceId.startsWith("power-window:")) {
-    return Number.POSITIVE_INFINITY;
-  }
-  return 1;
+  capacity.set("power-window:nominal", Number.POSITIVE_INFINITY);
+  capacity.set("power-window:degraded", Number.POSITIVE_INFINITY);
+  capacity.set("power-window:brownout", Number.POSITIVE_INFINITY);
+  capacity.set("power-window:overloaded", Number.POSITIVE_INFINITY);
+  capacity.set("power-window:source_limited", Number.POSITIVE_INFINITY);
+  capacity.set("power-window:non_converged", Number.POSITIVE_INFINITY);
+  capacity.set("power-window:islanded", Number.POSITIVE_INFINITY);
+  capacity.set("power-window:invalid", Number.POSITIVE_INFINITY);
+  return capacity;
 }
 
 function reservationTypeForResource(resourceId: StableId): DispatchReservation["resourceType"] {
@@ -671,7 +1061,7 @@ function markAssetsUsed(
   candidate: CandidateEvaluation,
   assetIndex: ReadonlyMap<StableId, DispatchAsset>,
 ): void {
-  for (const assetId of candidate.worker.assetIds) {
+  for (const assetId of candidate.primaryWorkers.flatMap((worker) => worker.assetIds)) {
     const asset = assetIndex.get(assetId);
     if (asset) {
       asset.state = "reserved";
@@ -711,7 +1101,9 @@ function aggregatePowerStatus(
 function stripCandidateRuntime(candidate: CandidateEvaluation): DispatchCandidate {
   return {
     chitId: candidate.chitId,
+    chitIds: candidate.chitIds,
     workerId: candidate.workerId,
+    workerIds: candidate.workerIds,
     supportWorkerIds: candidate.supportWorkerIds,
     assetIds: candidate.assetIds,
     match: candidate.match,
@@ -721,17 +1113,13 @@ function stripCandidateRuntime(candidate: CandidateEvaluation): DispatchCandidat
   };
 }
 
-function missionPlanIdFor(chit: DispatchChit, candidate: CandidateEvaluation): StableId {
-  return `mission:${chit.id}:${candidate.workerId}`;
+function missionPlanIdFor(group: DispatchChitGroup, candidate: CandidateEvaluation): StableId {
+  return `mission:${group.id}:${candidate.workerIds.join("+")}`;
 }
 
-function superWorkerIdFor(chit: DispatchChit, candidate: CandidateEvaluation): StableId {
+function superWorkerIdFor(group: DispatchChitGroup, candidate: CandidateEvaluation): StableId {
   const support = candidate.supportWorkerIds.length > 0 ? `:${candidate.supportWorkerIds.join("+")}` : "";
-  return `super:${chit.id}:${candidate.workerId}${support}`;
-}
-
-function startTimeFor(chit: DispatchChit, generatedAt: string): string {
-  return new Date(Math.max(Date.parse(chit.readyAt), Date.parse(generatedAt))).toISOString();
+  return `super:${group.id}:${candidate.workerIds.join("+")}${support}`;
 }
 
 function endTimeFor(startTime: string, route: GuidewayRoute): string {
@@ -739,12 +1127,12 @@ function endTimeFor(startTime: string, route: GuidewayRoute): string {
   return new Date(Date.parse(startTime) + durationSeconds * 1000).toISOString();
 }
 
-function capacityHeadroomScore(chit: DispatchChit, worker: DispatchWorker): number {
+function capacityHeadroomScore(chit: DispatchChit, capacity: DispatchWorker["capacity"]): number {
   const ratios = [
-    ratio(chit.quantity.passengers, worker.capacity.passengers),
-    ratio(chit.quantity.massKg, worker.capacity.massKg),
-    ratio(chit.quantity.volumeLiters, worker.capacity.volumeLiters),
-    ratio(chit.quantity.energyWh, worker.capacity.energyWh),
+    ratio(chit.quantity.passengers, capacity.passengers),
+    ratio(chit.quantity.massKg, capacity.massKg),
+    ratio(chit.quantity.volumeLiters, capacity.volumeLiters),
+    ratio(chit.quantity.energyWh, capacity.energyWh),
   ].filter((value): value is number => typeof value === "number");
   if (ratios.length === 0) {
     return 100;

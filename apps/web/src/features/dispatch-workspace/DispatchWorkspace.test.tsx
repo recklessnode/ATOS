@@ -26,11 +26,11 @@ describe("DispatchWorkspace", () => {
   it("focuses a mission target on the scenario map", () => {
     render(<DispatchWorkspace />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Focus mission chit-cargo" }));
+    fireEvent.click(screen.getByRole("button", { name: "Focus mission chit-commuter" }));
 
     const details = screen.getByLabelText("Selection details");
     expect(details).not.toHaveTextContent("No object selected");
-    expect(details).toHaveTextContent("tile-cargo:guideway-b");
+    expect(details).toHaveTextContent("connection:tile-cargo:guideway-b:tile-platform:guideway-a");
   });
 
   it("surfaces deficiency gates and focuses related assets", () => {
