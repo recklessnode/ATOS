@@ -1,5 +1,6 @@
 import { getSixTileCitySummary } from "@atos/scenario";
 import "./App.css";
+import { ScenarioMap } from "./features/scenario-map";
 import { WORKSPACES } from "./workspaces";
 
 const scenarioSummary = getSixTileCitySummary();
@@ -48,8 +49,10 @@ export function App() {
         </ul>
       </section>
 
+      <ScenarioMap />
+
       <section className="workspace-grid" aria-label="Workspace placeholders">
-        {WORKSPACES.map((workspace) => (
+        {WORKSPACES.filter((workspace) => workspace.id !== "layout").map((workspace) => (
           <article className="workspace-panel" id={workspace.id} key={workspace.id}>
             <div>
               <p className="workspace-status">{workspace.status}</p>

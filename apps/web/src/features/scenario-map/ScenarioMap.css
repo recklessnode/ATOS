@@ -1,0 +1,391 @@
+.scenario-map-workspace {
+  padding: 24px 0;
+  border-bottom: 1px solid #ccd6d1;
+}
+
+.scenario-map-heading {
+  display: grid;
+  grid-template-columns: minmax(0, 300px) minmax(0, 1fr);
+  gap: 18px;
+  align-items: end;
+  margin-bottom: 16px;
+}
+
+.scenario-map-heading h2 {
+  margin-bottom: 0;
+  color: #1d3832;
+  font-size: 1.8rem;
+}
+
+.scenario-map-heading p:last-child {
+  margin-bottom: 0;
+  color: #485753;
+}
+
+.scenario-map-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 360px);
+  gap: 16px;
+  align-items: stretch;
+}
+
+.scenario-map-main,
+.scenario-map-sidepanel,
+.scenario-map-details,
+.scenario-map-diagnostics {
+  border: 1px solid #ccd6d1;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.scenario-map-main {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.scenario-map-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px;
+  border-bottom: 1px solid #dce4df;
+}
+
+.scenario-map-toolbar button,
+.scenario-map-layers label,
+.diagnostic-grid button,
+.related-list button {
+  min-height: 40px;
+  border: 1px solid #adc1ba;
+  border-radius: 8px;
+  background: #f8faf7;
+  color: #24302c;
+  font: inherit;
+  font-weight: 700;
+}
+
+.scenario-map-toolbar button {
+  min-width: 40px;
+  padding: 8px 12px;
+}
+
+.scenario-map-toolbar button:disabled,
+.diagnostic-grid button:disabled {
+  opacity: 0.48;
+}
+
+.scenario-map-layers {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+  border: 0;
+  border-bottom: 1px solid #dce4df;
+  padding: 12px;
+}
+
+.scenario-map-layers legend {
+  padding: 0;
+  color: #56716a;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.scenario-map-layers label {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 10px;
+}
+
+.scenario-map-canvas {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  min-height: 420px;
+  background: #edf2ef;
+  touch-action: none;
+  user-select: none;
+}
+
+.scenario-map-hitplane {
+  fill: #edf2ef;
+}
+
+.map-tile {
+  fill: #f9faf3;
+  stroke: #667d76;
+  stroke-width: 2;
+}
+
+.map-tile:nth-of-type(2n) {
+  fill: #f1f7f8;
+}
+
+.guideway-link {
+  stroke: #29353a;
+  stroke-width: 8;
+  stroke-linecap: round;
+  fill: none;
+}
+
+.electrical-branch {
+  stroke: #7b4b9b;
+  stroke-width: 4;
+  stroke-dasharray: 8 6;
+  stroke-linecap: round;
+  fill: none;
+}
+
+.hit-stroke {
+  opacity: 0;
+  stroke-width: 24;
+}
+
+.guideway-node,
+.electrical-node,
+.station-marker,
+.service-zone-marker,
+.electrical-source,
+.electrical-load {
+  stroke: #17201d;
+  stroke-width: 1.5;
+}
+
+.point-hit {
+  fill: transparent;
+  stroke: transparent;
+}
+
+.guideway-node {
+  fill: #ffffff;
+}
+
+.electrical-node {
+  fill: #ede1f7;
+}
+
+.station-marker {
+  fill: #ffdd75;
+}
+
+.service-zone-marker {
+  fill: #83c5be;
+}
+
+.electrical-source {
+  fill: #f4a261;
+}
+
+.electrical-load {
+  fill: #cdb4db;
+}
+
+.point-glyph {
+  fill: #17201d;
+  font-size: 10px;
+  font-weight: 800;
+  pointer-events: none;
+  text-anchor: middle;
+}
+
+.tile-label,
+.tile-id-label {
+  fill: #17201d;
+  font-size: 13px;
+  font-weight: 800;
+  text-anchor: middle;
+}
+
+.tile-id-label {
+  fill: #50625d;
+  font-size: 10px;
+}
+
+.orientation-indicator {
+  stroke: #d1662f;
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+
+.is-selected .map-tile,
+.map-tile.is-selected {
+  fill: #fff3bf;
+  stroke: #8a5a00;
+  stroke-width: 4;
+}
+
+.is-selected .guideway-link,
+.is-selected .electrical-branch {
+  stroke: #8a5a00;
+  stroke-width: 10;
+}
+
+.is-selected .guideway-node,
+.is-selected .electrical-node,
+.is-selected .station-marker,
+.is-selected .service-zone-marker,
+.is-selected .electrical-source,
+.is-selected .electrical-load {
+  stroke: #8a5a00;
+  stroke-width: 4;
+}
+
+.is-related .map-tile,
+.map-tile.is-related {
+  stroke: #1b7280;
+  stroke-dasharray: 8 5;
+  stroke-width: 3;
+}
+
+.is-related .guideway-link,
+.is-related .electrical-branch {
+  stroke: #1b7280;
+}
+
+.diagnostic-marker rect {
+  fill: url("#diag-hatch");
+  stroke: #8a3a12;
+  stroke-width: 2;
+}
+
+.diagnostic-marker text {
+  fill: #1f130d;
+  font-size: 16px;
+  font-weight: 900;
+  pointer-events: none;
+  text-anchor: middle;
+}
+
+[role="button"]:focus-visible,
+.scenario-map-canvas:focus-visible,
+button:focus-visible,
+input:focus-visible {
+  outline: 3px solid #d4a72c;
+  outline-offset: 3px;
+}
+
+.scenario-map-sidepanel {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+  border: 0;
+  background: transparent;
+}
+
+.scenario-map-diagnostics,
+.scenario-map-details {
+  padding: 14px;
+}
+
+.scenario-map-diagnostics h3,
+.scenario-map-details h3 {
+  margin-bottom: 8px;
+  color: #1d3832;
+}
+
+.scenario-map-diagnostics p {
+  color: #485753;
+  font-size: 0.92rem;
+}
+
+.diagnostic-grid {
+  display: grid;
+  gap: 8px;
+}
+
+.diagnostic-grid button {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  text-align: left;
+}
+
+.scenario-map-details dl {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.scenario-map-details dl div {
+  display: grid;
+  grid-template-columns: minmax(0, 120px) minmax(0, 1fr);
+  gap: 8px;
+}
+
+.scenario-map-details dt {
+  color: #56716a;
+  font-weight: 800;
+}
+
+.scenario-map-details dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.related-list {
+  display: grid;
+  gap: 8px;
+  margin: 14px 0;
+}
+
+.related-list h4 {
+  margin: 0;
+  color: #1d3832;
+}
+
+.related-list button {
+  padding: 8px 10px;
+  text-align: left;
+}
+
+.scenario-map-details pre {
+  max-height: 220px;
+  overflow: auto;
+  border-radius: 8px;
+  padding: 10px;
+  background: #17201d;
+  color: #f6f7f4;
+  font-size: 0.78rem;
+}
+
+@media (max-width: 920px) {
+  .scenario-map-heading,
+  .scenario-map-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .scenario-map-sidepanel {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 620px) {
+  .scenario-map-toolbar,
+  .scenario-map-layers {
+    grid-template-columns: 1fr;
+  }
+
+  .scenario-map-layers {
+    display: grid;
+  }
+
+  .scenario-map-toolbar button {
+    flex: 1 1 42%;
+  }
+
+  .scenario-map-canvas {
+    min-height: 0;
+    aspect-ratio: 16 / 10;
+  }
+
+  .scenario-map-sidepanel {
+    grid-template-columns: 1fr;
+  }
+
+  .scenario-map-details dl div {
+    grid-template-columns: 1fr;
+  }
+}

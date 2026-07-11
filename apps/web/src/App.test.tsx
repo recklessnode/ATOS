@@ -26,10 +26,12 @@ describe("ATOS web shell", () => {
         "href",
         `#${workspace.id}`,
       );
-      expect(
-        within(placeholderRegion).getByRole("heading", { name: workspace.name }),
-      ).toBeInTheDocument();
     }
+    expect(screen.getByRole("heading", { name: "Scenario Map Inspector" })).toBeInTheDocument();
+    expect(within(placeholderRegion).getByRole("heading", { name: "Power" })).toBeInTheDocument();
+    expect(within(placeholderRegion).getByRole("heading", { name: "Capacity" })).toBeInTheDocument();
+    expect(within(placeholderRegion).getByRole("heading", { name: "Dispatch" })).toBeInTheDocument();
+    expect(within(placeholderRegion).queryByRole("heading", { name: "Layout" })).not.toBeInTheDocument();
   });
 
   it("renders the loaded six-tile fixture counts", () => {
