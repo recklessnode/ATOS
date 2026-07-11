@@ -66,6 +66,39 @@ export function detectPowerFindings(result: PowerAnalysisResult): PowerFinding[]
     }));
   }
 
+  for (const group of parallelBranchGroups(result.normalized)) {
+    const byResistance = [...group].sort((left, right) => {
+      const resistanceCompare = left.resistanceOhms - right.resistanceOhms;
+      return Math.abs(resistanceCompare) > 1e-9 ? resistanceCompare : left.id.localeCompare(right.id);
+    });
+    const strongest = byResistance[0];
+    const weakest = byResistance[byResistance.length - 1];
+    if (!strongest || !weakest || strongest.id === weakest.id) {
+      continue;
+    }
+    const branchResultById = new Map(result.branches.map((branch) => [branch.id, branch]));
+    const groupCurrent = group.reduce((sum, branch) => sum + (branchResultById.get(branch.id)?.absCurrentAmps ?? 0), 0);
+    const weakestCurrent = branchResultById.get(weakest.id)?.absCurrentAmps ?? 0;
+    if (weakest.resistanceOhms >= strongest.resistanceOhms * 4 && weakestCurrent <= Math.max(0.05, groupCurrent * 0.12)) {
+      findings.push(finding({
+        type: "ineffective_loop",
+        key: weakest.id,
+        severity: "info",
+        label: "Geometric loop provides little electrical relief",
+        explanation: `${weakest.id} is a high-resistance parallel path and carries only ${round(weakestCurrent)} A.`,
+        affectedIds: group.flatMap((branch) => [branch.id, branch.fromNodeId, branch.toNodeId]),
+        targetId: weakest.id,
+        targetKind: "branch",
+        metrics: {
+          resistanceRatio: weakest.resistanceOhms / strongest.resistanceOhms,
+          bypassCurrentAmps: weakestCurrent,
+          groupCurrentAmps: groupCurrent,
+        },
+        threshold: 4,
+      }));
+    }
+  }
+
   for (const load of result.loads.filter((load) => load.requestedWatts > 0)) {
     const pathResistance = pathIndex.resistanceByNodeId.get(load.nodeId) ?? 0;
     if (pathResistance >= 0.18 && (load.state !== "served" || load.voltage < load.minimumVoltage + 1.5)) {
@@ -122,6 +155,28 @@ export function detectPowerFindings(result: PowerAnalysisResult): PowerFinding[]
       metrics: { worstVoltageDropPercent: result.metrics.worstVoltageDropPercent },
       threshold: 8,
     }));
+  }
+
+  const sourceNodeIds = result.normalized.sources.map((source) => source.nodeId).sort();
+  for (const load of result.loads.filter((load) => load.consumerTier === 0 && load.requestedWatts > 0 && load.state !== "disconnected")) {
+    const pathBranchIds = pathIndex.pathBranchIdsByNodeId.get(load.nodeId) ?? [];
+    const criticalBranchId = pathBranchIds.find((branchId) =>
+      !canReachSource(result.normalized, load.nodeId, sourceNodeIds, branchId),
+    );
+    if (criticalBranchId) {
+      findings.push(finding({
+        type: "safety_redundancy",
+        key: load.id,
+        severity: "warning",
+        label: "Safety-critical load lacks redundant feed",
+        explanation: `${load.id} depends on ${criticalBranchId}; losing that branch isolates a safety-critical consumer.`,
+        affectedIds: [load.id, load.nodeId, criticalBranchId],
+        targetId: criticalBranchId,
+        targetKind: "branch",
+        metrics: { requestedWatts: load.requestedWatts, redundantPathCount: 0 },
+        threshold: 1,
+      }));
+    }
   }
 
   if (result.metrics.networkState !== "nominal" && result.metrics.totalRequestedLoadWatts > 90) {
@@ -447,6 +502,46 @@ function buildPathIndex(network: NormalizedPowerNetwork): PathIndex {
   }
 
   return { resistanceByNodeId, pathBranchIdsByNodeId };
+}
+
+function parallelBranchGroups(network: NormalizedPowerNetwork): NormalizedPowerNetwork["branches"][] {
+  const groups = new Map<string, NormalizedPowerNetwork["branches"]>();
+  for (const branch of network.branches.filter((branch) => branch.enabled)) {
+    const key = [branch.fromNodeId, branch.toNodeId].sort().join("::");
+    groups.set(key, [...(groups.get(key) ?? []), branch]);
+  }
+  return [...groups.values()].filter((group) => group.length > 1);
+}
+
+function canReachSource(
+  network: NormalizedPowerNetwork,
+  startNodeId: StableId,
+  sourceNodeIds: readonly StableId[],
+  excludedBranchId: StableId,
+): boolean {
+  const sourceSet = new Set(sourceNodeIds);
+  const visited = new Set<StableId>();
+  const pending = [startNodeId];
+
+  while (pending.length > 0) {
+    const current = pending.pop() as StableId;
+    if (sourceSet.has(current)) {
+      return true;
+    }
+    if (visited.has(current)) {
+      continue;
+    }
+    visited.add(current);
+    for (const branch of network.branches.filter((branch) => branch.enabled && branch.id !== excludedBranchId)) {
+      if (branch.fromNodeId === current && !visited.has(branch.toNodeId)) {
+        pending.push(branch.toNodeId);
+      } else if (branch.toNodeId === current && !visited.has(branch.fromNodeId)) {
+        pending.push(branch.fromNodeId);
+      }
+    }
+  }
+
+  return false;
 }
 
 function toInput(network: NormalizedPowerNetwork): PowerNetworkInput {

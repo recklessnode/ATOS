@@ -15,6 +15,7 @@ describe("PowerWorkspace", () => {
     expect(within(workspace).getByRole("region", { name: "Node voltage table" })).toBeInTheDocument();
     expect(within(workspace).getByRole("region", { name: "Branch current table" })).toBeInTheDocument();
     expect(within(workspace).getByText(/Tier 6 - Decorative/)).toBeInTheDocument();
+    expect(within(workspace).getByText(/highest protected shortfall:\s*none/)).toBeInTheDocument();
   });
 
   it("switches PCB overlay modes", () => {
@@ -38,7 +39,9 @@ describe("PowerWorkspace", () => {
 
     fireEvent.click(within(recommendations).getAllByRole("button", { name: "Focus affected object" })[0] as HTMLElement);
 
-    expect(screen.getByLabelText("Selection details")).not.toHaveTextContent("No object selected");
+    const details = screen.getByLabelText("Selection details");
+    expect(details).not.toHaveTextContent("No object selected");
+    expect(details).toHaveTextContent("tile-utility:bus-a");
   });
 
   it("does not mutate the six-tile fixture when switching presets", () => {
@@ -51,5 +54,21 @@ describe("PowerWorkspace", () => {
     });
 
     expect(JSON.stringify(document)).toBe(before);
+  });
+
+  it("keeps the Power workspace operable at phone width", () => {
+    const originalWidth = window.innerWidth;
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 390 });
+    window.dispatchEvent(new Event("resize"));
+
+    render(<PowerWorkspace />);
+
+    const workspace = screen.getByRole("region", { name: "Power workspace" });
+    expect(within(workspace).getByLabelText("Operating preset")).toBeInTheDocument();
+    expect(within(workspace).getByRole("group", { name: "PCB overlay" })).toBeInTheDocument();
+    expect(within(workspace).getByRole("region", { name: "Power integrity summary" })).toBeInTheDocument();
+    expect(within(workspace).getByLabelText("Layout workspace")).toBeInTheDocument();
+
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: originalWidth });
   });
 });

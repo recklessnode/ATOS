@@ -97,7 +97,8 @@ export function solveNormalizedPowerNetwork(
     options,
     shedLoadIds,
   });
-  const diagnostics = buildPowerDiagnostics(normalized, metrics, branchResults, loadResults, sourceResults);
+  const diagnostics = buildPowerDiagnostics(normalized, metrics, branchResults, loadResults, sourceResults, options);
+  const protectedConstraintTier = protectedConstraintTierFromDecisions(sheddingDecisions);
 
   return {
     normalized,
@@ -111,10 +112,10 @@ export function solveNormalizedPowerNetwork(
     tierSummaries,
     sheddingDecisions: [...sheddingDecisions],
     metrics,
-    safetyPreserved: tierPreserved(tierSummaries, 0),
-    controlPreserved: tierPreserved(tierSummaries, 1),
-    mobilityPreserved: tierPreserved(tierSummaries, 2),
-    highestProtectedTierNotFullyServed: highestProtectedTierNotFullyServed(tierSummaries),
+    safetyPreserved: tierPreserved(tierSummaries, 0, protectedConstraintTier),
+    controlPreserved: tierPreserved(tierSummaries, 1, protectedConstraintTier),
+    mobilityPreserved: tierPreserved(tierSummaries, 2, protectedConstraintTier),
+    highestProtectedTierNotFullyServed: highestProtectedTierNotFullyServed(tierSummaries, protectedConstraintTier),
   };
 }
 
@@ -399,6 +400,7 @@ function buildPowerDiagnostics(
   branches: readonly BranchPowerResult[],
   loads: readonly LoadPowerResult[],
   sources: readonly SourcePowerResult[],
+  options: PowerSolverOptions,
 ): PowerDiagnostic[] {
   const diagnostics: PowerDiagnostic[] = network.validationIssues.map((issue) => ({
     id: `power:${issue.id}`,
@@ -485,7 +487,7 @@ function buildPowerDiagnostics(
       unit: "V",
     });
   }
-  if (Math.abs(metrics.powerBalanceResidualWatts) > 0.02) {
+  if (Math.abs(metrics.powerBalanceResidualWatts) > options.powerBalanceToleranceWatts) {
     diagnostics.push({
       id: "power:network:power-balance",
       severity: "warning",
@@ -493,7 +495,7 @@ function buildPowerDiagnostics(
       message: `Power balance residual is ${metrics.powerBalanceResidualWatts} W.`,
       affectedIds: [],
       measured: metrics.powerBalanceResidualWatts,
-      threshold: 0.02,
+      threshold: options.powerBalanceToleranceWatts,
       unit: "W",
     });
   }
@@ -584,18 +586,44 @@ function sourceCurrentAtNode(
   return branchCurrent + localLoadCurrent;
 }
 
-function tierPreserved(tiers: readonly TierPowerSummary[], tier: 0 | 1 | 2): boolean {
+function tierPreserved(
+  tiers: readonly TierPowerSummary[],
+  tier: 0 | 1 | 2,
+  protectedConstraintTier: 0 | 1 | 2 | undefined,
+): boolean {
   const summary = tiers.find((candidate) => candidate.tier === tier);
-  return !summary || summary.shedCount === 0 && summary.undervoltageCount === 0;
+  if (!summary) {
+    return true;
+  }
+  if (protectedConstraintTier !== undefined && tier >= protectedConstraintTier && summary.requestedWatts > 0) {
+    return false;
+  }
+  return summary.shedCount === 0 && summary.undervoltageCount === 0;
 }
 
-function highestProtectedTierNotFullyServed(tiers: readonly TierPowerSummary[]): 0 | 1 | 2 | undefined {
+function highestProtectedTierNotFullyServed(
+  tiers: readonly TierPowerSummary[],
+  protectedConstraintTier: 0 | 1 | 2 | undefined,
+): 0 | 1 | 2 | undefined {
+  if (protectedConstraintTier !== undefined) {
+    return protectedConstraintTier;
+  }
   for (const tier of [0, 1, 2] as const) {
-    if (!tierPreserved(tiers, tier)) {
+    if (!tierPreserved(tiers, tier, undefined)) {
       return tier;
     }
   }
   return undefined;
+}
+
+function protectedConstraintTierFromDecisions(
+  decisions: readonly SheddingDecision[],
+): 0 | 1 | 2 | undefined {
+  const protectedTiers = decisions
+    .filter((decision) => decision.reasonCode === "protected_constraint_violation" && isProtectedTier(decision.consumerTier))
+    .map((decision) => decision.consumerTier as 0 | 1 | 2)
+    .sort((left, right) => left - right);
+  return protectedTiers[0];
 }
 
 function unsourcedLoadComponents(network: NormalizedPowerNetwork): {

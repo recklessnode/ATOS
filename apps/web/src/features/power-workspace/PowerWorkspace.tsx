@@ -3,6 +3,7 @@ import {
   analyzePowerNetwork,
   applyPowerPreset,
   POWER_PRESETS,
+  POWER_TIER_LABELS,
   type PowerAnalysisResult,
   type PowerPresetId,
   type PowerRecommendation,
@@ -146,6 +147,7 @@ function MetricCard({ detail, label, value }: { detail?: string; label: string; 
 }
 
 function TierSummary({ analysis }: { analysis: PowerAnalysisResult }) {
+  const protectedShortfall = analysis.highestProtectedTierNotFullyServed;
   return (
     <section className="power-panel" aria-label="Consumer tier summary">
       <div className="power-panel-heading">
@@ -153,7 +155,8 @@ function TierSummary({ analysis }: { analysis: PowerAnalysisResult }) {
         <p>
           Safety preserved: {analysis.safetyPreserved ? "yes" : "no"}; control preserved:{" "}
           {analysis.controlPreserved ? "yes" : "no"}; mobility preserved:{" "}
-          {analysis.mobilityPreserved ? "yes" : "no"}.
+          {analysis.mobilityPreserved ? "yes" : "no"}; highest protected shortfall:{" "}
+          {protectedShortfall === undefined ? "none" : POWER_TIER_LABELS[protectedShortfall]}.
         </p>
       </div>
       <div className="table-wrap">

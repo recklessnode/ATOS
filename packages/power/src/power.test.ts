@@ -137,6 +137,9 @@ describe("power solver", () => {
       expect.objectContaining({ reasonCode: "protected_constraint_violation" }),
     );
     expect(result.loads.some((load) => load.state === "shed")).toBe(false);
+    expect(result.safetyPreserved).toBe(false);
+    expect(result.controlPreserved).toBe(false);
+    expect(result.highestProtectedTierNotFullyServed).toBe(0);
   });
 
   it("summarizes consumer tiers", () => {
@@ -152,13 +155,50 @@ describe("power solver", () => {
     const result = analyzePowerNetwork(constantPowerBrownoutFixture());
 
     expect(result.findings.some((finding) => finding.type === "long_radial_feed")).toBe(true);
+    expect(result.findings.some((finding) => finding.type === "far_end_load_cluster")).toBe(true);
     expect(result.recommendations.length).toBeGreaterThan(0);
     expect(result.recommendations[0]?.score.total).toBeGreaterThan(0);
+    expect(result.recommendations[0]?.preview?.before.networkState).toBe(result.metrics.networkState);
+    expect(result.recommendations[0]?.preview?.after.totalDeliveredLoadWatts).toBeGreaterThanOrEqual(
+      result.metrics.totalDeliveredLoadWatts,
+    );
     expect(result.recommendations).toEqual(
       [...result.recommendations].sort((left, right) => {
         const scoreCompare = right.score.total - left.score.total;
         return Math.abs(scoreCompare) > 1e-9 ? scoreCompare : left.id.localeCompare(right.id);
       }),
+    );
+  });
+
+  it("detects source bottlenecks, ineffective loops, and safety redundancy", () => {
+    const bottleneck = analyzePowerNetwork({
+      nodes: [{ id: "source" }, { id: "load" }],
+      branches: [{ id: "source-neck", fromNodeId: "source", toNodeId: "load", resistanceOhms: 0.05, currentLimitAmps: 4.5, enabled: true }],
+      sources: [{ id: "supply", nodeId: "source", nominalVoltage: 24, maximumWatts: 200 }],
+      loads: [{ id: "station", nodeId: "load", requestedWatts: 96, minimumVoltage: 20, loadClass: "passenger", sheddingPriority: 20 }],
+    });
+    const ineffectiveLoop = analyzePowerNetwork({
+      nodes: [{ id: "source" }, { id: "load" }],
+      branches: [
+        { id: "strong-feed", fromNodeId: "source", toNodeId: "load", resistanceOhms: 0.1, currentLimitAmps: 5, enabled: true },
+        { id: "weak-loop", fromNodeId: "source", toNodeId: "load", resistanceOhms: 2, currentLimitAmps: 5, enabled: true },
+      ],
+      sources: [{ id: "supply", nodeId: "source", nominalVoltage: 24, maximumWatts: 200 }],
+      loads: [{ id: "passenger", nodeId: "load", requestedWatts: 24, minimumVoltage: 20, loadClass: "passenger", sheddingPriority: 20 }],
+    });
+    const safetyRadial = analyzePowerNetwork({
+      nodes: [{ id: "source" }, { id: "safety-node" }],
+      branches: [{ id: "single-safety-feed", fromNodeId: "source", toNodeId: "safety-node", resistanceOhms: 0.1, currentLimitAmps: 5, enabled: true }],
+      sources: [{ id: "supply", nodeId: "source", nominalVoltage: 24, maximumWatts: 200 }],
+      loads: [{ id: "brake-controller", nodeId: "safety-node", requestedWatts: 12, minimumVoltage: 20, loadClass: "braking", sheddingPriority: 0 }],
+    });
+
+    expect(bottleneck.findings.some((finding) => finding.type === "source_bottleneck")).toBe(true);
+    expect(ineffectiveLoop.findings).toContainEqual(
+      expect.objectContaining({ type: "ineffective_loop", targetId: "weak-loop" }),
+    );
+    expect(safetyRadial.findings).toContainEqual(
+      expect.objectContaining({ type: "safety_redundancy", targetId: "single-safety-feed" }),
     );
   });
 
@@ -180,6 +220,76 @@ describe("power solver", () => {
     expect(stress.metrics.totalRequestedLoadWatts).toBeGreaterThan(idle.metrics.totalRequestedLoadWatts);
     expect(stress.findings.length).toBeGreaterThan(0);
     expect(stress.recommendations.length).toBeGreaterThan(0);
+  });
+
+  it("pins deterministic six-tile preset metrics", () => {
+    const document = loadSixTileCityFixture();
+    const expectations = [
+      {
+        preset: "idle",
+        state: "nominal",
+        sourceUtilizationPercent: 17.04,
+        minimumVoltage: 23.94,
+        deliveredWatts: 17,
+        lossWatts: 0.03,
+        worstBranchUtilizationPercent: 10.61,
+        shedLoadCount: 0,
+      },
+      {
+        preset: "normal_operations",
+        state: "nominal",
+        sourceUtilizationPercent: 50.34,
+        minimumVoltage: 23.81,
+        deliveredWatts: 50,
+        lossWatts: 0.34,
+        worstBranchUtilizationPercent: 26.92,
+        shedLoadCount: 0,
+      },
+      {
+        preset: "simultaneous_station_load",
+        state: "nominal",
+        sourceUtilizationPercent: 89.88,
+        minimumVoltage: 23.66,
+        deliveredWatts: 88.8,
+        lossWatts: 1.08,
+        worstBranchUtilizationPercent: 48.09,
+        shedLoadCount: 0,
+      },
+      {
+        preset: "propulsion_surge",
+        state: "nominal",
+        sourceUtilizationPercent: 92.99,
+        minimumVoltage: 23.69,
+        deliveredWatts: 92,
+        lossWatts: 0.98,
+        worstBranchUtilizationPercent: 63.9,
+        shedLoadCount: 0,
+      },
+      {
+        preset: "brownout_stress",
+        state: "source_limited",
+        sourceUtilizationPercent: 116.47,
+        minimumVoltage: 23.7,
+        deliveredWatts: 115.2,
+        lossWatts: 1.27,
+        worstBranchUtilizationPercent: 74.51,
+        shedLoadCount: 4,
+      },
+    ] as const;
+
+    for (const expected of expectations) {
+      const result = analyzePowerNetwork(applyPowerPreset(document.electrical, expected.preset));
+
+      expect(result.metrics.networkState).toBe(expected.state);
+      expect((result.sources[0]?.utilization ?? 0) * 100).toBeCloseTo(expected.sourceUtilizationPercent, 2);
+      expect(result.metrics.minimumNodeVoltage).toBeCloseTo(expected.minimumVoltage, 2);
+      expect(result.metrics.totalDeliveredLoadWatts).toBeCloseTo(expected.deliveredWatts, 2);
+      expect(result.metrics.totalConductorLossWatts).toBeCloseTo(expected.lossWatts, 2);
+      expect(result.metrics.worstBranchId).toBe("electrical-connection:tile-power:bus-b:tile-station:bus-a");
+      expect(result.metrics.worstBranchUtilization * 100).toBeCloseTo(expected.worstBranchUtilizationPercent, 2);
+      expect(result.metrics.shedLoadCount).toBe(expected.shedLoadCount);
+      expect(Math.abs(result.metrics.powerBalanceResidualWatts)).toBeLessThanOrEqual(0.02);
+    }
   });
 
   it("contains no React imports", () => {
