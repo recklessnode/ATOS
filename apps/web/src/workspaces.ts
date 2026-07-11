@@ -27,7 +27,7 @@ export const WORKSPACES = [
   {
     id: "dispatch",
     name: "Dispatch",
-    summary: "Chit queue, candidate assets, reservations, and deficiencies.",
-    status: "Placeholder",
+    summary: "Universal chit queue, worker matching, reservations, mission plans, and deficiency gates.",
+    status: "Implemented",
   },
 ] as const satisfies readonly Workspace[];

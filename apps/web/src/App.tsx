@@ -1,6 +1,7 @@
 import { useLayoutEffect } from "react";
 import { getSixTileCitySummary } from "@atos/scenario";
 import "./App.css";
+import { DispatchWorkspace } from "./features/dispatch-workspace";
 import { LayoutEditor } from "./features/layout-editor";
 import { PowerWorkspace } from "./features/power-workspace";
 import { WORKSPACES } from "./workspaces";
@@ -64,9 +65,10 @@ export function App() {
 
       <LayoutEditor />
       <PowerWorkspace />
+      <DispatchWorkspace />
 
       <section className="workspace-grid" aria-label="Workspace placeholders">
-        {WORKSPACES.filter((workspace) => workspace.id !== "layout" && workspace.id !== "power").map((workspace) => (
+        {WORKSPACES.filter((workspace) => !["layout", "power", "dispatch"].includes(workspace.id)).map((workspace) => (
           <article className="workspace-panel" id={workspace.id} key={workspace.id}>
             <div>
               <p className="workspace-status">{workspace.status}</p>
