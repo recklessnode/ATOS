@@ -30,6 +30,17 @@ describe("scenario map render model", () => {
 
     expect(model.layers).toEqual(DEFAULT_SCENARIO_MAP_LAYERS);
     expect(model.layers.electrical).toBe(false);
+    expect(model.diagnostics).toHaveLength(0);
+    expect(model.diagnosticSummary).toEqual({
+      duplicateTileOccupancy: 0,
+      missingDefinition: 0,
+      openGuidewayEnd: 0,
+      incompatibleGuidewayConnection: 0,
+      disconnectedGuidewayComponent: 0,
+      openElectricalConnector: 0,
+      incompatibleElectricalConnection: 0,
+      extractionError: 0,
+    });
     expect(JSON.stringify(document)).toBe(before);
   });
 

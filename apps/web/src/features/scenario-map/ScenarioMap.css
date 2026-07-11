@@ -377,18 +377,12 @@ input:focus-visible {
   }
 
   .scenario-map-canvas {
-    min-height: 360px;
-    aspect-ratio: 4 / 5;
+    min-height: 0;
+    aspect-ratio: 16 / 10;
   }
 
   .scenario-map-sidepanel {
     grid-template-columns: 1fr;
-  }
-
-  .scenario-map-details {
-    position: sticky;
-    bottom: 0;
-    box-shadow: 0 -8px 18px rgb(23 32 29 / 12%);
   }
 
   .scenario-map-details dl div {

@@ -15,6 +15,7 @@ describe("ScenarioMap", () => {
     expect(screen.getByTestId("tile-tile-charging")).toBeInTheDocument();
     expect(screen.getByLabelText("Electrical network")).not.toBeChecked();
     expect(screen.queryByTestId("electricalSource-tile-power:source")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Focus diagnostic" })).toBeDisabled();
   });
 
   it("selects and clears tiles with stable IDs", () => {
@@ -88,6 +89,8 @@ describe("ScenarioMap", () => {
     });
 
     render(<ScenarioMap model={diagnosticModel} />);
+    expect(screen.getByRole("button", { name: "Focus diagnostic" })).toBeEnabled();
+
     fireEvent.click(screen.getByRole("button", { name: /Open guideway ends: 2/i }));
 
     expect(screen.getByRole("heading", { name: /Open guideway edge/i })).toBeInTheDocument();

@@ -1,4 +1,5 @@
 export function ScenarioMapToolbar({
+  canFocusDiagnostic,
   canFocusSelected,
   onFit,
   onFocusDiagnostic,
@@ -9,6 +10,7 @@ export function ScenarioMapToolbar({
   onZoomIn,
   onZoomOut,
 }: {
+  canFocusDiagnostic: boolean;
   canFocusSelected: boolean;
   onFit: () => void;
   onFocusDiagnostic: () => void;
@@ -42,7 +44,7 @@ export function ScenarioMapToolbar({
       <button onClick={onFocusSource} type="button">
         Focus source
       </button>
-      <button onClick={onFocusDiagnostic} type="button">
+      <button disabled={!canFocusDiagnostic} onClick={onFocusDiagnostic} type="button">
         Focus diagnostic
       </button>
     </div>

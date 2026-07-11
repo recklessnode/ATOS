@@ -29,6 +29,7 @@ import "./ScenarioMap.css";
 
 type PointerTracker = {
   lastPoint: { x: number; y: number } | null;
+  lastSvgPoint: { x: number; y: number } | null;
   moved: boolean;
   pointers: Map<number, { x: number; y: number }>;
   pinchDistance: number | null;
@@ -43,6 +44,7 @@ export function ScenarioMap({ model: providedModel }: { model?: ScenarioMapRende
   const [view, dispatchView] = useReducer(reduceViewState, initialView);
   const tracker = useRef<PointerTracker>({
     lastPoint: null,
+    lastSvgPoint: null,
     moved: false,
     pointers: new Map(),
     pinchDistance: null,
@@ -104,10 +106,9 @@ export function ScenarioMap({ model: providedModel }: { model?: ScenarioMapRende
 
   function handleWheel(event: WheelEvent<SVGSVGElement>): void {
     event.preventDefault();
-    const rect = event.currentTarget.getBoundingClientRect();
     dispatchView({
       type: "zoom",
-      viewportPoint: { x: event.clientX - rect.left, y: event.clientY - rect.top },
+      viewportPoint: clientPointToSvgPoint(event.currentTarget, { x: event.clientX, y: event.clientY }),
       scaleMultiplier: event.deltaY < 0 ? 1.12 : 0.88,
     });
   }
@@ -116,6 +117,7 @@ export function ScenarioMap({ model: providedModel }: { model?: ScenarioMapRende
     const point = { x: event.clientX, y: event.clientY };
     tracker.current.pointers.set(event.pointerId, point);
     tracker.current.lastPoint = point;
+    tracker.current.lastSvgPoint = clientPointToSvgPoint(event.currentTarget, point);
     tracker.current.moved = false;
     if (tracker.current.pointers.size === 2) {
       tracker.current.pinchDistance = pointerDistance([...tracker.current.pointers.values()]);
@@ -134,7 +136,7 @@ export function ScenarioMap({ model: providedModel }: { model?: ScenarioMapRende
       if (lastDistance > 0) {
         dispatchView({
           type: "zoom",
-          viewportPoint: averageViewportPoint(points, event.currentTarget.getBoundingClientRect()),
+          viewportPoint: averageSvgPoint(points, event.currentTarget),
           scaleMultiplier: nextDistance / lastDistance,
         });
       }
@@ -148,12 +150,15 @@ export function ScenarioMap({ model: providedModel }: { model?: ScenarioMapRende
       tracker.current.lastPoint = nextPoint;
       return;
     }
-    const delta = { x: nextPoint.x - lastPoint.x, y: nextPoint.y - lastPoint.y };
+    const nextSvgPoint = clientPointToSvgPoint(event.currentTarget, nextPoint);
+    const lastSvgPoint = tracker.current.lastSvgPoint ?? clientPointToSvgPoint(event.currentTarget, lastPoint);
+    const delta = { x: nextSvgPoint.x - lastSvgPoint.x, y: nextSvgPoint.y - lastSvgPoint.y };
     if (Math.abs(delta.x) > 0 || Math.abs(delta.y) > 0) {
       tracker.current.moved = true;
       dispatchView({ type: "pan", delta });
     }
     tracker.current.lastPoint = nextPoint;
+    tracker.current.lastSvgPoint = nextSvgPoint;
   }
 
   function handlePointerUp(event: PointerEvent<SVGSVGElement>): void {
@@ -163,11 +168,14 @@ export function ScenarioMap({ model: providedModel }: { model?: ScenarioMapRende
       setSelection(null);
     }
     tracker.current.lastPoint = null;
+    tracker.current.lastSvgPoint = null;
   }
 
   function firstDiagnosticSelection(): ScenarioSelection | undefined {
     return model.focusTargets.firstDiagnostic ?? model.diagnostics[0]?.selection;
   }
+
+  const focusDiagnosticTarget = firstDiagnosticSelection();
 
   return (
     <section className="scenario-map-workspace" id="layout" aria-label="Layout workspace">
@@ -186,11 +194,11 @@ export function ScenarioMap({ model: providedModel }: { model?: ScenarioMapRende
         <div className="scenario-map-main">
           <ScenarioMapToolbar
             canFocusSelected={Boolean(selection)}
+            canFocusDiagnostic={Boolean(focusDiagnosticTarget)}
             onFit={() => dispatchView({ type: "fit", bounds: model.bounds, viewport: DEFAULT_VIEWPORT })}
             onFocusDiagnostic={() => {
-              const diagnostic = firstDiagnosticSelection();
-              if (diagnostic) {
-                selectAndFocus(diagnostic);
+              if (focusDiagnosticTarget) {
+                selectAndFocus(focusDiagnosticTarget);
               }
             }}
             onFocusSelected={() => focusSelection(selection)}
@@ -237,7 +245,7 @@ export function ScenarioMap({ model: providedModel }: { model?: ScenarioMapRende
             onPointerUp={handlePointerUp}
             onPointerCancel={handlePointerUp}
             onWheel={handleWheel}
-            role="img"
+            role="group"
             tabIndex={0}
             viewBox={`0 0 ${DEFAULT_VIEWPORT.width} ${DEFAULT_VIEWPORT.height}`}
           >
@@ -603,16 +611,31 @@ function pointerDistance(points: readonly { x: number; y: number }[]): number {
   return Math.hypot(points[0].x - points[1].x, points[0].y - points[1].y);
 }
 
-function averageViewportPoint(
+function averageSvgPoint(
   points: readonly { x: number; y: number }[],
-  rect: DOMRect,
+  svg: SVGSVGElement,
 ): { x: number; y: number } {
   const sum = points.reduce(
     (current, point) => ({ x: current.x + point.x, y: current.y + point.y }),
     { x: 0, y: 0 },
   );
-  return {
-    x: sum.x / points.length - rect.left,
-    y: sum.y / points.length - rect.top,
-  };
+  return clientPointToSvgPoint(svg, { x: sum.x / points.length, y: sum.y / points.length });
+}
+
+function clientPointToSvgPoint(svg: SVGSVGElement, point: { x: number; y: number }): { x: number; y: number } {
+  const screenMatrix = svg.getScreenCTM?.();
+  if (screenMatrix && typeof DOMPoint === "function") {
+    const svgPoint = new DOMPoint(point.x, point.y).matrixTransform(screenMatrix.inverse());
+    return { x: svgPoint.x, y: svgPoint.y };
+  }
+
+  const rect = svg.getBoundingClientRect();
+  if (rect.width > 0 && rect.height > 0) {
+    return {
+      x: ((point.x - rect.left) / rect.width) * DEFAULT_VIEWPORT.width,
+      y: ((point.y - rect.top) / rect.height) * DEFAULT_VIEWPORT.height,
+    };
+  }
+
+  return { x: point.x - rect.left, y: point.y - rect.top };
 }
