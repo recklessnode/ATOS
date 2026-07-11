@@ -1,0 +1,387 @@
+.layout-editor {
+  display: grid;
+  gap: 1rem;
+}
+
+.layout-editor-heading,
+.layout-editor-status,
+.editor-toolbar,
+.layout-warning-confirmation,
+.layout-preset-control,
+.editor-panel,
+.catalog-panel,
+.layout-map-panel {
+  background: #f8fafc;
+  border: 1px solid #d7dee8;
+  border-radius: 8px;
+}
+
+.layout-editor-heading {
+  align-items: start;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  padding: 1rem;
+}
+
+.layout-editor-heading h2,
+.catalog-panel h3,
+.editor-panel h3 {
+  margin: 0;
+}
+
+.layout-editor-heading p {
+  max-width: 58rem;
+}
+
+.layout-editor-status {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+}
+
+.layout-editor-status strong {
+  background: #153e52;
+  border-radius: 999px;
+  color: #fff;
+  padding: 0.25rem 0.6rem;
+  text-transform: uppercase;
+}
+
+.layout-editor-grid {
+  align-items: start;
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(16rem, 0.8fr) minmax(26rem, 1.6fr) minmax(18rem, 1fr);
+}
+
+.layout-library-panel,
+.layout-inspector-panel,
+.layout-editor-main {
+  display: grid;
+  gap: 1rem;
+}
+
+.catalog-panel,
+.editor-panel,
+.layout-map-panel {
+  padding: 1rem;
+}
+
+.catalog-heading {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.catalog-heading input,
+.metadata-form input,
+.metadata-form textarea,
+.layout-preset-control select,
+.coordinate-controls input,
+.file-controls textarea {
+  border: 1px solid #aeb8c5;
+  border-radius: 6px;
+  font: inherit;
+  padding: 0.5rem;
+  width: 100%;
+}
+
+.catalog-list {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  max-height: 32rem;
+  overflow: auto;
+}
+
+.catalog-list button {
+  background: #fff;
+  border: 1px solid #ccd5df;
+  border-radius: 6px;
+  color: #17202a;
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.65rem;
+  text-align: left;
+}
+
+.catalog-list button.active {
+  border-color: #0f766e;
+  box-shadow: inset 0 0 0 2px #0f766e;
+}
+
+.catalog-list small,
+.catalog-list span,
+.recommendation-list small,
+.diagnostic-list small {
+  color: #4b5b6b;
+}
+
+.editor-toolbar {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.75rem;
+}
+
+.tool-group,
+.inline-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.tool-group button,
+.inline-actions button,
+.editor-panel button,
+.layout-warning-confirmation button {
+  border: 1px solid #8190a3;
+  border-radius: 6px;
+  background: #fff;
+  color: #16202b;
+  min-height: 2.5rem;
+  padding: 0.45rem 0.7rem;
+}
+
+.tool-group button:not(:disabled):hover,
+.inline-actions button:not(:disabled):hover,
+.editor-panel button:not(:disabled):hover {
+  background: #e6f4f1;
+}
+
+.tool-group button:disabled {
+  color: #7b8794;
+}
+
+.coordinate-controls label,
+.layout-preset-control,
+.metadata-form label,
+.file-controls label {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.coordinate-controls input {
+  max-width: 5rem;
+}
+
+.active-tool {
+  margin: 0;
+}
+
+.layout-warning-confirmation {
+  align-items: center;
+  border-color: #c77824;
+  display: flex;
+  gap: 0.75rem;
+  padding: 0.75rem;
+}
+
+.layout-preset-control {
+  padding: 0.75rem;
+}
+
+.layout-editor-map {
+  aspect-ratio: 4 / 3;
+  background: #ffffff;
+  border: 1px solid #c7d1de;
+  border-radius: 6px;
+  min-height: 24rem;
+  width: 100%;
+}
+
+.candidate-tile {
+  fill: #f2f6fa;
+  stroke: #9eacba;
+  stroke-dasharray: 7 5;
+  stroke-width: 2;
+}
+
+.candidate-tile.valid-target {
+  fill: #e7f7f1;
+  stroke: #0f766e;
+}
+
+.draft-tile {
+  cursor: grab;
+  fill: #e9eef4;
+  stroke: #34495e;
+  stroke-width: 2.2;
+}
+
+.draft-tile.selected {
+  fill: #e2f6ff;
+  stroke: #075985;
+  stroke-width: 4;
+}
+
+.draft-tile.has-diagnostic {
+  fill: url("#layout-warning-hatch");
+}
+
+.draft-orientation {
+  stroke: #17202a;
+  stroke-width: 3;
+}
+
+.draft-tile-label,
+.draft-tile-id,
+.preview-added-label {
+  fill: #17202a;
+  font-size: 18px;
+  pointer-events: none;
+  text-anchor: middle;
+}
+
+.draft-tile-id {
+  font-size: 13px;
+}
+
+.draft-guideway {
+  stroke: #0f766e;
+  stroke-linecap: round;
+  stroke-width: 9;
+}
+
+.draft-electrical {
+  stroke: #b45309;
+  stroke-linecap: round;
+  stroke-width: 4;
+}
+
+.draft-source {
+  fill: #fef3c7;
+  stroke: #b45309;
+  stroke-width: 2;
+}
+
+.draft-load {
+  fill: #fee2e2;
+  stroke: #991b1b;
+  stroke-width: 2;
+}
+
+.draft-set-piece circle {
+  fill: #eef2ff;
+  stroke: #4338ca;
+  stroke-width: 2;
+}
+
+.draft-set-piece.selected circle {
+  fill: #dbeafe;
+  stroke: #1d4ed8;
+  stroke-width: 4;
+}
+
+.draft-set-piece.has-diagnostic circle {
+  fill: #fff7ed;
+  stroke: #c2410c;
+}
+
+.draft-set-piece text {
+  fill: #111827;
+  font-size: 13px;
+  pointer-events: none;
+  text-anchor: middle;
+}
+
+.preview-added-label {
+  fill: #0f766e;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.map-help {
+  color: #4b5b6b;
+  margin-bottom: 0;
+}
+
+.metadata-form {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.property-list {
+  display: grid;
+  gap: 0.4rem;
+  grid-template-columns: max-content 1fr;
+}
+
+.property-list dt {
+  color: #4b5b6b;
+  font-weight: 700;
+}
+
+.diagnostic-list,
+.recommendation-list {
+  display: grid;
+  gap: 0.6rem;
+  padding-left: 1.2rem;
+}
+
+.diagnostic-list li,
+.recommendation-list li,
+.preview-panel {
+  background: #fff;
+  border: 1px solid #d9e2ec;
+  border-radius: 6px;
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.65rem;
+}
+
+.diagnostic-list li.error {
+  border-color: #b91c1c;
+}
+
+.diagnostic-list li.warning {
+  border-color: #c77824;
+}
+
+.preview-panel table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.preview-panel th,
+.preview-panel td {
+  border-bottom: 1px solid #d9e2ec;
+  padding: 0.35rem;
+  text-align: left;
+}
+
+.changed-ids,
+.file-message {
+  color: #4b5b6b;
+  white-space: pre-wrap;
+}
+
+.file-message.error {
+  color: #991b1b;
+}
+
+@media (max-width: 1050px) {
+  .layout-editor-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .catalog-list {
+    max-height: 20rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .layout-editor-heading {
+    display: grid;
+  }
+
+  .layout-editor-map {
+    min-height: 18rem;
+  }
+
+  .tool-group button,
+  .inline-actions button {
+    flex: 1 1 8rem;
+  }
+}

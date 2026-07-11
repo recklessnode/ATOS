@@ -67,7 +67,7 @@ describe("PowerWorkspace", () => {
     expect(within(workspace).getByLabelText("Operating preset")).toBeInTheDocument();
     expect(within(workspace).getByRole("group", { name: "PCB overlay" })).toBeInTheDocument();
     expect(within(workspace).getByRole("region", { name: "Power integrity summary" })).toBeInTheDocument();
-    expect(within(workspace).getByLabelText("Layout workspace")).toBeInTheDocument();
+    expect(within(workspace).getByLabelText("Power scenario map")).toBeInTheDocument();
 
     Object.defineProperty(window, "innerWidth", { configurable: true, value: originalWidth });
   });

@@ -1,8 +1,8 @@
 import { useLayoutEffect } from "react";
 import { getSixTileCitySummary } from "@atos/scenario";
 import "./App.css";
+import { LayoutEditor } from "./features/layout-editor";
 import { PowerWorkspace } from "./features/power-workspace";
-import { ScenarioMap } from "./features/scenario-map";
 import { WORKSPACES } from "./workspaces";
 
 const scenarioSummary = getSixTileCitySummary();
@@ -62,7 +62,7 @@ export function App() {
         </ul>
       </section>
 
-      <ScenarioMap />
+      <LayoutEditor />
       <PowerWorkspace />
 
       <section className="workspace-grid" aria-label="Workspace placeholders">
