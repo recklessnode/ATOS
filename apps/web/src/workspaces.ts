@@ -15,8 +15,8 @@ export const WORKSPACES = [
   {
     id: "power",
     name: "Power",
-    summary: "100 W distribution visibility, loads, and brownout risk.",
-    status: "Placeholder",
+    summary: "DC nodal analysis, consumer tiers, shedding, and layout recommendations.",
+    status: "Implemented",
   },
   {
     id: "capacity",

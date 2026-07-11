@@ -1,11 +1,24 @@
+import { useLayoutEffect } from "react";
 import { getSixTileCitySummary } from "@atos/scenario";
 import "./App.css";
+import { PowerWorkspace } from "./features/power-workspace";
 import { ScenarioMap } from "./features/scenario-map";
 import { WORKSPACES } from "./workspaces";
 
 const scenarioSummary = getSixTileCitySummary();
 
 export function App() {
+  useLayoutEffect(() => {
+    if (!window.location.hash) {
+      return;
+    }
+    const targetId = window.location.hash.slice(1);
+    const target = document.getElementById(targetId);
+    if (typeof target?.scrollIntoView === "function") {
+      target.scrollIntoView({ block: "start" });
+    }
+  }, []);
+
   return (
     <main className="app-shell">
       <header className="masthead">
@@ -50,9 +63,10 @@ export function App() {
       </section>
 
       <ScenarioMap />
+      <PowerWorkspace />
 
       <section className="workspace-grid" aria-label="Workspace placeholders">
-        {WORKSPACES.filter((workspace) => workspace.id !== "layout").map((workspace) => (
+        {WORKSPACES.filter((workspace) => workspace.id !== "layout" && workspace.id !== "power").map((workspace) => (
           <article className="workspace-panel" id={workspace.id} key={workspace.id}>
             <div>
               <p className="workspace-status">{workspace.status}</p>

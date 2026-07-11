@@ -1,0 +1,279 @@
+.power-workspace {
+  padding: 24px 0;
+  border-bottom: 1px solid #ccd6d1;
+}
+
+.power-heading {
+  display: grid;
+  grid-template-columns: minmax(0, 300px) minmax(0, 1fr);
+  gap: 18px;
+  align-items: end;
+  margin-bottom: 16px;
+}
+
+.power-heading h2 {
+  margin-bottom: 0;
+  color: #1d3832;
+  font-size: 1.8rem;
+}
+
+.power-heading p:last-child {
+  margin-bottom: 0;
+  color: #485753;
+}
+
+.power-controls {
+  display: grid;
+  grid-template-columns: minmax(220px, 300px) minmax(0, 1fr);
+  gap: 12px;
+  align-items: stretch;
+  margin-bottom: 16px;
+}
+
+.power-controls label,
+.power-controls fieldset,
+.power-panel,
+.power-metric {
+  border: 1px solid #ccd6d1;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.power-controls > label {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  color: #1d3832;
+  font-weight: 800;
+}
+
+.power-controls select {
+  min-height: 40px;
+  border: 1px solid #adc1ba;
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: #f8faf7;
+  color: #24302c;
+  font: inherit;
+}
+
+.power-controls fieldset {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 12px;
+}
+
+.power-controls legend,
+.power-panel-heading p {
+  color: #56716a;
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.power-controls fieldset label {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  min-height: 40px;
+  padding: 8px 10px;
+  font-weight: 800;
+}
+
+.power-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.power-metric {
+  display: grid;
+  gap: 4px;
+  min-height: 92px;
+  padding: 12px;
+}
+
+.power-metric p {
+  margin: 0;
+  color: #56716a;
+  font-size: 0.82rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.power-metric strong {
+  color: #17201d;
+  font-size: 1.1rem;
+}
+
+.power-metric span {
+  color: #485753;
+  overflow-wrap: anywhere;
+}
+
+.power-map-panel .scenario-map-workspace {
+  padding-top: 0;
+}
+
+.power-analysis-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.power-table-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.power-panel {
+  min-width: 0;
+  padding: 14px;
+}
+
+.power-panel h3 {
+  margin: 0 0 8px;
+  color: #1d3832;
+}
+
+.power-panel-heading {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+
+.power-panel-heading h3,
+.power-panel-heading p {
+  margin: 0;
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+.power-panel table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.power-panel th,
+.power-panel td {
+  border-bottom: 1px solid #dce4df;
+  padding: 8px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.power-panel th {
+  color: #213a34;
+}
+
+.power-list,
+.power-recommendations {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.power-list li,
+.power-recommendations article {
+  display: grid;
+  gap: 8px;
+  border-left: 5px solid #0f766e;
+  border-radius: 6px;
+  padding: 10px;
+  background: #f8faf7;
+}
+
+.power-list li.warning,
+.power-list li.error {
+  border-left-style: double;
+}
+
+.power-list li.warning {
+  border-left-color: #a16207;
+}
+
+.power-list li.error {
+  border-left-color: #a13d14;
+}
+
+.power-list span,
+.power-recommendations p,
+.power-recommendations span {
+  color: #485753;
+}
+
+.power-recommendations article > div {
+  display: grid;
+  gap: 2px;
+}
+
+.power-recommendations dl {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+}
+
+.power-recommendations dl div {
+  display: grid;
+  grid-template-columns: minmax(0, 120px) minmax(0, 1fr);
+  gap: 8px;
+}
+
+.power-recommendations dt {
+  color: #56716a;
+  font-weight: 800;
+}
+
+.power-recommendations dd {
+  margin: 0;
+}
+
+.power-panel button,
+.power-recommendations button {
+  min-height: 36px;
+  border: 1px solid #adc1ba;
+  border-radius: 8px;
+  padding: 7px 10px;
+  background: #ffffff;
+  color: #24302c;
+  font: inherit;
+  font-weight: 800;
+}
+
+@media (max-width: 920px) {
+  .power-heading,
+  .power-controls,
+  .power-analysis-grid,
+  .power-table-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .power-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .power-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .power-controls fieldset {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .power-recommendations dl div {
+    grid-template-columns: 1fr;
+  }
+}

@@ -258,6 +258,90 @@
   text-anchor: middle;
 }
 
+.power-overlay {
+  pointer-events: auto;
+}
+
+.power-trace {
+  stroke: #0f766e;
+  stroke-linecap: round;
+  fill: none;
+}
+
+.power-trace-group.near_limit .power-trace {
+  stroke-dasharray: 10 5;
+}
+
+.power-trace-group.overloaded .power-trace {
+  stroke: #a13d14;
+  stroke-dasharray: 5 4;
+}
+
+.power-trace-group.disabled .power-trace,
+.power-trace-group.open .power-trace {
+  stroke: #79837f;
+  stroke-dasharray: 2 6;
+}
+
+.power-trace-label,
+.power-arrow-label,
+.power-node-label,
+.power-source-label {
+  fill: #10201c;
+  paint-order: stroke;
+  stroke: #edf2ef;
+  stroke-width: 4;
+  font-size: 11px;
+  font-weight: 900;
+  pointer-events: none;
+  text-anchor: middle;
+}
+
+.power-arrow-label {
+  font-size: 14px;
+}
+
+.power-load-state circle {
+  fill: #ffffff;
+  stroke: #0f766e;
+  stroke-width: 3;
+}
+
+.power-load-state.undervoltage circle,
+.power-load-state.infeasible circle {
+  fill: url("#diag-hatch");
+  stroke: #a13d14;
+}
+
+.power-load-state.shed circle,
+.power-load-state.disconnected circle {
+  fill: #f1f1ed;
+  stroke: #5d6763;
+  stroke-dasharray: 4 3;
+}
+
+.power-load-state text,
+.power-finding-marker text,
+.power-recommendation-marker text {
+  fill: #10201c;
+  font-size: 10px;
+  font-weight: 900;
+  pointer-events: none;
+  text-anchor: middle;
+}
+
+.power-finding-marker rect {
+  fill: url("#diag-hatch");
+  stroke: #a13d14;
+  stroke-width: 2;
+}
+
+.power-recommendation-marker circle {
+  fill: #d9f99d;
+  stroke: #365314;
+  stroke-width: 2;
+}
+
 [role="button"]:focus-visible,
 .scenario-map-canvas:focus-visible,
 button:focus-visible,

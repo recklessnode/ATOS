@@ -11,6 +11,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@atos/power": "0.0.0",
     "@atos/scenario": "0.0.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7"

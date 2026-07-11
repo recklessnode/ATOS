@@ -13,7 +13,7 @@ describe("ATOS web shell", () => {
     ]);
   });
 
-  it("renders navigation and placeholders for every workspace", () => {
+  it("renders navigation, implemented workspaces, and remaining placeholders", () => {
     render(<App />);
 
     const nav = screen.getByRole("navigation", { name: /atos workspaces/i });
@@ -27,11 +27,12 @@ describe("ATOS web shell", () => {
         `#${workspace.id}`,
       );
     }
-    expect(screen.getByRole("heading", { name: "Scenario Map Inspector" })).toBeInTheDocument();
-    expect(within(placeholderRegion).getByRole("heading", { name: "Power" })).toBeInTheDocument();
+    expect(screen.getAllByRole("heading", { name: "Scenario Map Inspector" }).length).toBeGreaterThan(0);
+    expect(screen.getByRole("heading", { name: "DC Power Integrity" })).toBeInTheDocument();
     expect(within(placeholderRegion).getByRole("heading", { name: "Capacity" })).toBeInTheDocument();
     expect(within(placeholderRegion).getByRole("heading", { name: "Dispatch" })).toBeInTheDocument();
     expect(within(placeholderRegion).queryByRole("heading", { name: "Layout" })).not.toBeInTheDocument();
+    expect(within(placeholderRegion).queryByRole("heading", { name: "Power" })).not.toBeInTheDocument();
   });
 
   it("renders the loaded six-tile fixture counts", () => {
