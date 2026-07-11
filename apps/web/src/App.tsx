@@ -1,3 +1,4 @@
+import { useLayoutEffect } from "react";
 import { getSixTileCitySummary } from "@atos/scenario";
 import "./App.css";
 import { PowerWorkspace } from "./features/power-workspace";
@@ -7,6 +8,17 @@ import { WORKSPACES } from "./workspaces";
 const scenarioSummary = getSixTileCitySummary();
 
 export function App() {
+  useLayoutEffect(() => {
+    if (!window.location.hash) {
+      return;
+    }
+    const targetId = window.location.hash.slice(1);
+    const target = document.getElementById(targetId);
+    if (typeof target?.scrollIntoView === "function") {
+      target.scrollIntoView({ block: "start" });
+    }
+  }, []);
+
   return (
     <main className="app-shell">
       <header className="masthead">
