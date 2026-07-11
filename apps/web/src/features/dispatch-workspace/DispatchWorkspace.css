@@ -1,0 +1,262 @@
+.dispatch-workspace {
+  padding: 24px 0;
+  border-bottom: 1px solid #ccd6d1;
+}
+
+.dispatch-heading {
+  display: grid;
+  grid-template-columns: minmax(0, 320px) minmax(0, 1fr);
+  gap: 18px;
+  align-items: end;
+  margin-bottom: 16px;
+}
+
+.dispatch-heading h2 {
+  margin-bottom: 0;
+  color: #1f342f;
+  font-size: 1.8rem;
+}
+
+.dispatch-heading p:last-child {
+  margin-bottom: 0;
+  color: #4a5854;
+}
+
+.dispatch-summary {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.dispatch-metric,
+.dispatch-panel {
+  border: 1px solid #ccd6d1;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.dispatch-metric {
+  display: grid;
+  gap: 4px;
+  min-height: 88px;
+  padding: 12px;
+}
+
+.dispatch-metric p {
+  margin: 0;
+  color: #5d6c68;
+  font-size: 0.8rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.dispatch-metric strong {
+  color: #151f1c;
+  font-size: 1.08rem;
+}
+
+.dispatch-metric span,
+.dispatch-list span,
+.dispatch-list small,
+.dispatch-cards span,
+.dispatch-cards p,
+.empty-state {
+  color: #4a5854;
+}
+
+.dispatch-map-panel .scenario-map-workspace {
+  padding-top: 0;
+}
+
+.dispatch-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.dispatch-grid-wide {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.dispatch-panel {
+  min-width: 0;
+  padding: 14px;
+}
+
+.dispatch-panel-heading {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.dispatch-panel-heading h3 {
+  margin: 0;
+  color: #1f342f;
+}
+
+.dispatch-panel-heading span {
+  min-width: 32px;
+  border-radius: 999px;
+  padding: 4px 8px;
+  background: #e8edf7;
+  color: #263a60;
+  font-weight: 800;
+  text-align: center;
+}
+
+.dispatch-panel table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.dispatch-panel th,
+.dispatch-panel td {
+  border-bottom: 1px solid #dce4df;
+  padding: 8px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.dispatch-panel th {
+  color: #213a34;
+}
+
+.dispatch-list,
+.dispatch-cards {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dispatch-list.compact {
+  gap: 8px;
+}
+
+.dispatch-list li,
+.dispatch-cards article {
+  display: grid;
+  gap: 8px;
+  border-left: 5px solid #2563eb;
+  border-radius: 6px;
+  padding: 10px;
+  background: #f8faf7;
+}
+
+.dispatch-list li.warning {
+  border-left-color: #a16207;
+  border-left-style: double;
+}
+
+.dispatch-list li.error {
+  border-left-color: #a13d14;
+  border-left-style: double;
+}
+
+.dispatch-list li > div,
+.dispatch-cards article > div {
+  display: grid;
+  gap: 3px;
+}
+
+.dispatch-list strong,
+.dispatch-cards strong {
+  color: #151f1c;
+  overflow-wrap: anywhere;
+}
+
+.dispatch-list small,
+.dispatch-cards dd {
+  overflow-wrap: anywhere;
+}
+
+.dispatch-card-heading {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+}
+
+.dispatch-cards dl,
+.dispatch-score-list {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+}
+
+.dispatch-cards dl div,
+.dispatch-score-list div {
+  display: grid;
+  grid-template-columns: minmax(0, 120px) minmax(0, 1fr);
+  gap: 8px;
+}
+
+.dispatch-cards dt,
+.dispatch-score-list dt {
+  color: #5d6c68;
+  font-weight: 800;
+}
+
+.dispatch-cards dd,
+.dispatch-score-list dd {
+  margin: 0;
+}
+
+.dispatch-score-list dd {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 48px;
+  gap: 8px;
+  align-items: center;
+}
+
+.dispatch-score-list meter {
+  width: 100%;
+}
+
+.dispatch-panel button {
+  min-height: 36px;
+  border: 1px solid #adc1ba;
+  border-radius: 8px;
+  padding: 7px 10px;
+  background: #ffffff;
+  color: #24302c;
+  font: inherit;
+  font-weight: 800;
+}
+
+.dispatch-panel button:hover,
+.dispatch-panel button:focus-visible {
+  border-color: #2563eb;
+  outline: 2px solid #bfdbfe;
+  outline-offset: 2px;
+}
+
+@media (max-width: 1120px) {
+  .dispatch-summary {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .dispatch-grid,
+  .dispatch-grid-wide {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .dispatch-heading,
+  .dispatch-summary,
+  .dispatch-grid,
+  .dispatch-grid-wide {
+    grid-template-columns: 1fr;
+  }
+
+  .dispatch-card-heading,
+  .dispatch-cards dl div,
+  .dispatch-score-list div {
+    grid-template-columns: 1fr;
+  }
+}
