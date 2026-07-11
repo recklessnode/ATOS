@@ -8,7 +8,7 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "npm run build --workspace @atos/domain && npm run build --workspace @atos/layout && npm run build --workspace @atos/scenario && npm run build --workspace @atos/web",
+    "build": "npm run build --workspace @atos/domain && npm run build --workspace @atos/layout && npm run build --workspace @atos/scenario && npm run build --workspace @atos/power && npm run build --workspace @atos/web",
     "lint": "eslint . --max-warnings=0",
     "test": "npm run test --workspaces --if-present"
   },
