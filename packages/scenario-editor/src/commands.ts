@@ -5,7 +5,6 @@ import {
   EDGE_INDEXES,
   normalizeOrientation,
   type AxialCoordinate,
-  type DefinitionRegistry,
   type PlacedTile,
   type SetPieceInstance,
 } from "@atos/layout";

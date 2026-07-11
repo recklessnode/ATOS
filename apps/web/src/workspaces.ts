@@ -9,8 +9,8 @@ export const WORKSPACES = [
   {
     id: "layout",
     name: "Layout",
-    summary: "Hex tile cityscape composition and connector validation.",
-    status: "Placeholder",
+    summary: "Interactive hex tile cityscape editing, validation, power preview, and scenario export.",
+    status: "Implemented",
   },
   {
     id: "power",

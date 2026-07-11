@@ -95,10 +95,15 @@ export function PowerWorkspace() {
 
       <div className="power-map-panel">
         <ScenarioMap
+          ariaLabel="Power scenario map"
           focusRequest={focusRequest}
+          headingDescription="Read-only SVG inspection with electrical layers and PCB-style power overlays for the selected operating preset."
+          headingStatus="Power map"
+          headingTitle="Power Scenario Map"
           key={focusRequest?.requestId ?? "power-map"}
           model={mapModel}
           powerOverlayMode={overlayMode}
+          sectionId="power-map"
         />
       </div>
 

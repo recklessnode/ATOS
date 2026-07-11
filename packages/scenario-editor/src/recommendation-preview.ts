@@ -2,7 +2,7 @@ import { axialDistance, axialKey, axialNeighbor, EDGE_INDEXES, type AxialCoordin
 import { analyzePowerNetwork, applyPowerPreset, type PowerAnalysisResult, type PowerRecommendation } from "@atos/power";
 import type { ScenarioDocumentV1 } from "@atos/scenario";
 import { compareScenarios } from "./comparison";
-import { duplicateTileIdFor, tileIdFor } from "./ids";
+import { tileIdFor } from "./ids";
 import { cloneScenarioDocument, deriveEditorState, rebuildScenarioDocument } from "./rebuild";
 import type { EditorDiagnostic, EditorPreview, EditorState, RecommendationExecution } from "./types";
 import { blockingDiagnostics } from "./validation";

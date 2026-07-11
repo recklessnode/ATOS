@@ -49,13 +49,23 @@ type PointerTracker = {
 };
 
 export function ScenarioMap({
+  ariaLabel = "Layout workspace",
   focusRequest,
+  headingDescription = "Read-only SVG inspection of the deterministic six-tile scenario, extracted guideway graph, station services, electrical graph, and diagnostics.",
+  headingStatus = "Layout",
+  headingTitle = "Scenario Map Inspector",
   model: providedModel,
   powerOverlayMode = "voltage",
+  sectionId = "layout",
 }: {
+  ariaLabel?: string;
   focusRequest?: ScenarioMapFocusRequest;
+  headingDescription?: string;
+  headingStatus?: string;
+  headingTitle?: string;
   model?: ScenarioMapRenderModel;
   powerOverlayMode?: PowerOverlayMode;
+  sectionId?: string;
 }) {
   const fixtureModel = useMemo(() => buildSixTileScenarioMapModel(), []);
   const model = providedModel ?? fixtureModel;
@@ -206,16 +216,13 @@ export function ScenarioMap({
   const focusDiagnosticTarget = firstDiagnosticSelection();
 
   return (
-    <section className="scenario-map-workspace" id="layout" aria-label="Layout workspace">
+    <section className="scenario-map-workspace" id={sectionId} aria-label={ariaLabel}>
       <div className="scenario-map-heading">
         <div>
-          <p className="workspace-status">Layout</p>
-          <h2>Scenario Map Inspector</h2>
+          <p className="workspace-status">{headingStatus}</p>
+          <h2>{headingTitle}</h2>
         </div>
-        <p>
-          Read-only SVG inspection of the deterministic six-tile scenario, extracted guideway graph,
-          station services, electrical graph, and diagnostics.
-        </p>
+        <p>{headingDescription}</p>
       </div>
 
       <div className="scenario-map-shell" onKeyDown={handleMapKeyDown}>

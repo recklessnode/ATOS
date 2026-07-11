@@ -27,7 +27,7 @@ describe("ATOS web shell", () => {
         `#${workspace.id}`,
       );
     }
-    expect(screen.getAllByRole("heading", { name: "Scenario Map Inspector" }).length).toBeGreaterThan(0);
+    expect(screen.getByRole("heading", { name: "Scenario Layout Editor" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "DC Power Integrity" })).toBeInTheDocument();
     expect(within(placeholderRegion).getByRole("heading", { name: "Capacity" })).toBeInTheDocument();
     expect(within(placeholderRegion).getByRole("heading", { name: "Dispatch" })).toBeInTheDocument();
