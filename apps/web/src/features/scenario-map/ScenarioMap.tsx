@@ -27,6 +27,19 @@ import {
 } from "./view-state";
 import "./ScenarioMap.css";
 
+export type PowerOverlayMode =
+  | "voltage"
+  | "current"
+  | "voltage_drop"
+  | "branch_utilization"
+  | "power_loss"
+  | "load_state";
+
+export type ScenarioMapFocusRequest = {
+  selection: ScenarioSelection;
+  requestId: number;
+};
+
 type PointerTracker = {
   lastPoint: { x: number; y: number } | null;
   lastSvgPoint: { x: number; y: number } | null;
@@ -35,12 +48,27 @@ type PointerTracker = {
   pinchDistance: number | null;
 };
 
-export function ScenarioMap({ model: providedModel }: { model?: ScenarioMapRenderModel }) {
+export function ScenarioMap({
+  focusRequest,
+  model: providedModel,
+  powerOverlayMode = "voltage",
+}: {
+  focusRequest?: ScenarioMapFocusRequest;
+  model?: ScenarioMapRenderModel;
+  powerOverlayMode?: PowerOverlayMode;
+}) {
   const fixtureModel = useMemo(() => buildSixTileScenarioMapModel(), []);
   const model = providedModel ?? fixtureModel;
-  const [layers, setLayers] = useState(model.layers);
-  const [selection, setSelection] = useState<ScenarioSelection | null>(null);
-  const initialView = useMemo(() => initialViewState(model.bounds, DEFAULT_VIEWPORT), [model.bounds]);
+  const [layers, setLayers] = useState(() =>
+    model.powerAnalysis ? { ...model.layers, electrical: true } : model.layers,
+  );
+  const initialSelection = focusRequest?.selection ?? null;
+  const [selection, setSelection] = useState<ScenarioSelection | null>(initialSelection);
+  const initialView = useMemo(() => {
+    const focusBounds = initialSelection ? model.boundsByKey.get(selectionKey(initialSelection)) : undefined;
+    const fitted = initialViewState(model.bounds, DEFAULT_VIEWPORT);
+    return focusBounds ? reduceViewState(fitted, { type: "focus", bounds: focusBounds, viewport: DEFAULT_VIEWPORT }) : fitted;
+  }, [initialSelection, model.bounds, model.boundsByKey]);
   const [view, dispatchView] = useReducer(reduceViewState, initialView);
   const tracker = useRef<PointerTracker>({
     lastPoint: null,
@@ -374,6 +402,17 @@ export function ScenarioMap({ model: providedModel }: { model?: ScenarioMapRende
                 </g>
               ) : null}
 
+              {layers.electrical && model.powerAnalysis ? (
+                <PowerOverlay
+                  mode={powerOverlayMode}
+                  model={model}
+                  onKeyDown={handleObjectKeyDown}
+                  onSelect={handleObjectSelect}
+                  relatedKeys={selectedRelatedKeys}
+                  selected={selection}
+                />
+              ) : null}
+
               {layers.tileLabels ? (
                 <g aria-label="Tile label layer" pointerEvents="none">
                   {model.tiles.map((tile) => (
@@ -424,6 +463,183 @@ export function ScenarioMap({ model: providedModel }: { model?: ScenarioMapRende
         </div>
       </div>
     </section>
+  );
+}
+
+function PowerOverlay({
+  mode,
+  model,
+  onKeyDown,
+  onSelect,
+  relatedKeys,
+  selected,
+}: {
+  mode: PowerOverlayMode;
+  model: ScenarioMapRenderModel;
+  onKeyDown: (event: KeyboardEvent, selection: ScenarioSelection) => void;
+  onSelect: (selection: ScenarioSelection) => void;
+  relatedKeys: ReadonlySet<string>;
+  selected: ScenarioSelection | null;
+}) {
+  const analysis = model.powerAnalysis;
+  if (!analysis) {
+    return null;
+  }
+
+  const branchById = new Map(analysis.branches.map((branch) => [branch.id, branch]));
+  const nodeById = new Map(analysis.nodes.map((node) => [node.id, node]));
+  const loadById = new Map(analysis.loads.map((load) => [load.id, load]));
+  const sourceById = new Map(analysis.sources.map((source) => [source.id, source]));
+
+  return (
+    <g aria-label={`Power ${mode.replaceAll("_", " ")} overlay`} className={`power-overlay mode-${mode}`}>
+      {model.electricalBranches.map((line) => {
+        const branch = branchById.get(line.id);
+        if (!branch) {
+          return null;
+        }
+        const selection = { kind: "electricalBranch", id: line.id } as const;
+        const stateClass = selectedStateClass(selection, selected, relatedKeys);
+        const midpoint = { x: (line.from.x + line.to.x) / 2, y: (line.from.y + line.to.y) / 2 };
+        return (
+          <g
+            aria-label={`Power branch ${line.id}: ${powerBranchLabel(branch, mode)}`}
+            className={`power-trace-group ${branch.state} ${stateClass}`}
+            data-testid={`power-branch-${line.id}`}
+            key={line.id}
+            onClick={(event) => {
+              event.stopPropagation();
+              onSelect(selection);
+            }}
+            onKeyDown={(event) => onKeyDown(event, selection)}
+            role="button"
+            tabIndex={0}
+          >
+            <line className="hit-stroke" x1={line.from.x} x2={line.to.x} y1={line.from.y} y2={line.to.y} />
+            <line
+              className="power-trace"
+              strokeWidth={powerTraceWidth(branch.utilization, mode)}
+              x1={line.from.x}
+              x2={line.to.x}
+              y1={line.from.y}
+              y2={line.to.y}
+            />
+            <text className="power-trace-label" x={midpoint.x} y={midpoint.y - 9}>
+              {powerBranchLabel(branch, mode)}
+            </text>
+            <text className="power-arrow-label" x={midpoint.x} y={midpoint.y + 12}>
+              {branch.currentAmps >= 0 ? "->" : "<-"}
+            </text>
+          </g>
+        );
+      })}
+
+      {model.electricalNodes.map((point) => {
+        const node = nodeById.get(point.id);
+        return node ? (
+          <text className="power-node-label" key={point.id} x={point.point.x} y={point.point.y - 12}>
+            {formatValue(node.voltage)} V
+          </text>
+        ) : null;
+      })}
+
+      {model.electricalSources.map((point) => {
+        const source = sourceById.get(point.id);
+        return source ? (
+          <text className="power-source-label" key={point.id} x={point.point.x} y={point.point.y - 14}>
+            {formatValue(source.utilization * 100)}%
+          </text>
+        ) : null;
+      })}
+
+      {model.electricalLoads.map((point) => {
+        const load = loadById.get(point.id);
+        if (!load) {
+          return null;
+        }
+        const selection = { kind: "electricalLoad", id: point.id } as const;
+        return (
+          <g
+            aria-label={`Power load ${point.id}: ${load.state}, tier ${load.consumerTier}, ${formatValue(load.deliveredWatts)} W delivered`}
+            className={`power-load-state ${load.state} tier-${load.consumerTier}`}
+            data-testid={`power-load-${point.id}`}
+            key={point.id}
+            onClick={(event) => {
+              event.stopPropagation();
+              onSelect(selection);
+            }}
+            onKeyDown={(event) => onKeyDown(event, selection)}
+            role="button"
+            tabIndex={0}
+          >
+            <circle cx={point.point.x} cy={point.point.y} r="13" />
+            <text x={point.point.x} y={point.point.y + 4}>
+              {load.state === "served" ? `T${load.consumerTier}` : "!"}
+            </text>
+          </g>
+        );
+      })}
+
+      {analysis.findings.slice(0, 8).map((finding) => {
+        const target = selectionForPowerTarget(finding.targetKind, finding.targetId);
+        const bounds = target ? model.boundsByKey.get(selectionKey(target)) : undefined;
+        if (!target || !bounds) {
+          return null;
+        }
+        const x = (bounds.minX + bounds.maxX) / 2;
+        const y = (bounds.minY + bounds.maxY) / 2;
+        return (
+          <g
+            aria-label={`Power finding: ${finding.label}. ${finding.explanation}`}
+            className={`power-finding-marker ${finding.severity}`}
+            data-testid={`power-finding-${finding.id}`}
+            key={finding.id}
+            onClick={(event) => {
+              event.stopPropagation();
+              onSelect(target);
+            }}
+            onKeyDown={(event) => onKeyDown(event, target)}
+            role="button"
+            tabIndex={0}
+          >
+            <rect height="20" width="20" x={x - 10} y={y - 10} />
+            <text x={x} y={y + 5}>
+              F
+            </text>
+          </g>
+        );
+      })}
+
+      {analysis.recommendations.slice(0, 5).map((recommendation) => {
+        const target = selectionForPowerTarget(recommendation.targetKind, recommendation.targetId);
+        const bounds = target ? model.boundsByKey.get(selectionKey(target)) : undefined;
+        if (!target || !bounds) {
+          return null;
+        }
+        const x = (bounds.minX + bounds.maxX) / 2 + 18;
+        const y = (bounds.minY + bounds.maxY) / 2 - 18;
+        return (
+          <g
+            aria-label={`Power recommendation: ${recommendation.proposedChange}`}
+            className="power-recommendation-marker"
+            data-testid={`power-recommendation-${recommendation.id}`}
+            key={recommendation.id}
+            onClick={(event) => {
+              event.stopPropagation();
+              onSelect(target);
+            }}
+            onKeyDown={(event) => onKeyDown(event, target)}
+            role="button"
+            tabIndex={0}
+          >
+            <circle cx={x} cy={y} r="11" />
+            <text x={x} y={y + 5}>
+              R
+            </text>
+          </g>
+        );
+      })}
+    </g>
   );
 }
 
@@ -638,4 +854,63 @@ function clientPointToSvgPoint(svg: SVGSVGElement, point: { x: number; y: number
   }
 
   return { x: point.x - rect.left, y: point.y - rect.top };
+}
+
+function powerTraceWidth(utilization: number, mode: PowerOverlayMode): number {
+  if (mode === "branch_utilization" || mode === "current") {
+    return Math.max(4, Math.min(14, 4 + utilization * 8));
+  }
+  return 5;
+}
+
+function powerBranchLabel(
+  branch: NonNullable<ScenarioMapRenderModel["powerAnalysis"]>["branches"][number],
+  mode: PowerOverlayMode,
+): string {
+  switch (mode) {
+    case "voltage":
+      return `${formatValue(branch.voltageDrop)} V drop`;
+    case "current":
+      return `${formatValue(branch.currentAmps)} A`;
+    case "voltage_drop":
+      return `${formatValue(branch.voltageDrop)} V`;
+    case "branch_utilization":
+      return `${formatValue(branch.utilization * 100)}%`;
+    case "power_loss":
+      return `${formatValue(branch.powerLossWatts)} W loss`;
+    case "load_state":
+      return branch.state;
+  }
+}
+
+function selectionForPowerTarget(
+  kind: string | undefined,
+  id: string | undefined,
+): ScenarioSelection | null {
+  if (!kind || !id) {
+    return null;
+  }
+  if (kind === "node") {
+    return { kind: "electricalNode", id };
+  }
+  if (kind === "branch") {
+    return { kind: "electricalBranch", id };
+  }
+  if (kind === "source") {
+    return { kind: "electricalSource", id };
+  }
+  if (kind === "load") {
+    return { kind: "electricalLoad", id };
+  }
+  if (kind === "tile") {
+    return { kind: "tile", id };
+  }
+  if (kind === "setPiece") {
+    return { kind: "setPiece", id };
+  }
+  return null;
+}
+
+function formatValue(value: number): string {
+  return Number.isFinite(value) ? String(Math.round(value * 100) / 100) : "n/a";
 }

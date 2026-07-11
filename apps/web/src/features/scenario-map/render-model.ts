@@ -19,6 +19,7 @@ import {
   polygonPoints,
   tileEdgeAnchorPoint,
 } from "@atos/layout";
+import type { PowerAnalysisResult } from "@atos/power";
 import { loadSixTileCityFixture, type ScenarioDocumentV1 } from "@atos/scenario";
 import type { ServiceZone, StableId, Station } from "@atos/domain";
 import type { ScenarioSelection, SelectionRelationMap } from "./selection";
@@ -119,6 +120,7 @@ export type FocusTargets = {
 
 export type ScenarioMapRenderModel = {
   document: ScenarioDocumentV1;
+  powerAnalysis?: PowerAnalysisResult;
   radius: number;
   bounds: Bounds;
   layers: ScenarioMapLayers;
@@ -140,13 +142,20 @@ export type ScenarioMapRenderModel = {
   focusTargets: FocusTargets;
 };
 
+export type ScenarioMapRenderOptions = {
+  powerAnalysis?: PowerAnalysisResult;
+};
+
 type MutableRelationMap = Map<string, ScenarioSelection[]>;
 
-export function buildSixTileScenarioMapModel(): ScenarioMapRenderModel {
-  return buildScenarioMapRenderModel(loadSixTileCityFixture());
+export function buildSixTileScenarioMapModel(options: ScenarioMapRenderOptions = {}): ScenarioMapRenderModel {
+  return buildScenarioMapRenderModel(loadSixTileCityFixture(), options);
 }
 
-export function buildScenarioMapRenderModel(document: ScenarioDocumentV1): ScenarioMapRenderModel {
+export function buildScenarioMapRenderModel(
+  document: ScenarioDocumentV1,
+  options: ScenarioMapRenderOptions = {},
+): ScenarioMapRenderModel {
   const registry = createDefaultDefinitionRegistry();
   const radius = 82;
   const guideway = extractGuidewayGraph({
@@ -368,6 +377,7 @@ export function buildScenarioMapRenderModel(document: ScenarioDocumentV1): Scena
     document,
     guideway,
     electrical,
+    powerAnalysis: options.powerAnalysis,
     tiles,
     stations,
     serviceZones,
@@ -380,6 +390,7 @@ export function buildScenarioMapRenderModel(document: ScenarioDocumentV1): Scena
 
   return {
     document,
+    powerAnalysis: options.powerAnalysis,
     radius,
     bounds: mapBoundsForTiles(document.layout.tiles, radius, 72),
     layers: DEFAULT_SCENARIO_MAP_LAYERS,
@@ -738,6 +749,7 @@ function buildDetails(input: {
   document: ScenarioDocumentV1;
   guideway: ReturnType<typeof extractGuidewayGraph>;
   electrical: ReturnType<typeof extractElectricalGraph>;
+  powerAnalysis?: PowerAnalysisResult;
   tiles: RenderTile[];
   stations: RenderPoint[];
   serviceZones: RenderPoint[];
@@ -749,6 +761,10 @@ function buildDetails(input: {
 }): ReadonlyMap<string, DetailRecord> {
   const details = new Map<string, DetailRecord>();
   const relatedFor = (selection: ScenarioSelection) => [...(input.relationMap.get(selectionKey(selection)) ?? [])];
+  const powerNodeById = new Map(input.powerAnalysis?.nodes.map((node) => [node.id, node]) ?? []);
+  const powerBranchById = new Map(input.powerAnalysis?.branches.map((branch) => [branch.id, branch]) ?? []);
+  const powerLoadById = new Map(input.powerAnalysis?.loads.map((load) => [load.id, load]) ?? []);
+  const powerSourceById = new Map(input.powerAnalysis?.sources.map((source) => [source.id, source]) ?? []);
 
   for (const tile of input.document.layout.tiles) {
     const selection = { kind: "tile", id: tile.id } as const;
@@ -858,6 +874,7 @@ function buildDetails(input: {
   }
   for (const node of input.electrical.nodes) {
     const selection = { kind: "electricalNode", id: node.id } as const;
+    const powerNode = powerNodeById.get(node.id);
     details.set(selectionKey(selection), {
       selection,
       label: `Electrical node ${node.localNodeId}`,
@@ -865,13 +882,23 @@ function buildDetails(input: {
       properties: [
         { label: "Tile", value: node.tileId },
         { label: "Local node", value: node.localNodeId },
+        ...(powerNode
+          ? [
+              { label: "Voltage", value: `${formatPowerNumber(powerNode.voltage)} V` },
+              { label: "Connected branches", value: powerNode.connectedBranchIds.join(", ") || "none" },
+              { label: "Attached sources", value: powerNode.attachedSourceIds.join(", ") || "none" },
+              { label: "Attached loads", value: powerNode.attachedLoadIds.join(", ") || "none" },
+              { label: "Component", value: powerNode.componentId },
+            ]
+          : []),
       ],
       related: relatedFor(selection),
-      raw: node,
+      raw: powerNode ? { scenario: node, power: powerNode } : node,
     });
   }
   for (const branch of input.electrical.branches) {
     const selection = { kind: "electricalBranch", id: branch.id } as const;
+    const powerBranch = powerBranchById.get(branch.id);
     details.set(selectionKey(selection), {
       selection,
       label: branch.kind === "tile-connection" ? "Inter-tile electrical branch" : "Internal electrical branch",
@@ -883,13 +910,24 @@ function buildDetails(input: {
         { label: "Resistance", value: `${branch.resistanceOhms} ohms` },
         { label: "Current limit", value: `${branch.currentLimitAmps} A` },
         { label: "Enabled", value: branch.enabled ? "yes" : "no" },
+        ...(powerBranch
+          ? [
+              { label: "Current", value: `${formatPowerNumber(powerBranch.currentAmps)} A` },
+              { label: "Direction", value: `${powerBranch.fromNodeId} -> ${powerBranch.toNodeId}` },
+              { label: "Utilization", value: `${formatPowerNumber(powerBranch.utilization * 100)}%` },
+              { label: "Voltage drop", value: `${formatPowerNumber(powerBranch.voltageDrop)} V` },
+              { label: "Power loss", value: `${formatPowerNumber(powerBranch.powerLossWatts)} W` },
+              { label: "State", value: powerBranch.state },
+            ]
+          : []),
       ],
       related: relatedFor(selection),
-      raw: branch,
+      raw: powerBranch ? { scenario: branch, power: powerBranch } : branch,
     });
   }
   for (const source of input.electrical.sources) {
     const selection = { kind: "electricalSource", id: source.id } as const;
+    const powerSource = powerSourceById.get(source.id);
     details.set(selectionKey(selection), {
       selection,
       label: "Nominal power source",
@@ -898,13 +936,22 @@ function buildDetails(input: {
         { label: "Node", value: source.nodeId },
         { label: "Nominal voltage", value: `${source.nominalVoltage} V` },
         { label: "Maximum power", value: `${source.maximumWatts} W` },
+        ...(powerSource
+          ? [
+              { label: "Delivered current", value: `${formatPowerNumber(powerSource.currentAmps)} A` },
+              { label: "Delivered power", value: `${formatPowerNumber(powerSource.deliveredWatts)} W` },
+              { label: "Utilization", value: `${formatPowerNumber(powerSource.utilization * 100)}%` },
+              { label: "Remaining headroom", value: `${formatPowerNumber(powerSource.wattageHeadroom)} W` },
+            ]
+          : []),
       ],
       related: relatedFor(selection),
-      raw: source,
+      raw: powerSource ? { scenario: source, power: powerSource } : source,
     });
   }
   for (const load of input.electrical.loads) {
     const selection = { kind: "electricalLoad", id: load.id } as const;
+    const powerLoad = powerLoadById.get(load.id);
     details.set(selectionKey(selection), {
       selection,
       label: `${load.loadClass} load`,
@@ -915,9 +962,19 @@ function buildDetails(input: {
         { label: "Minimum voltage", value: `${load.minimumVoltage} V` },
         { label: "Load class", value: load.loadClass },
         { label: "Shedding priority", value: String(load.sheddingPriority) },
+        ...(powerLoad
+          ? [
+              { label: "Consumer tier", value: `Tier ${powerLoad.consumerTier}` },
+              { label: "Delivered power", value: `${formatPowerNumber(powerLoad.deliveredWatts)} W` },
+              { label: "Current", value: `${formatPowerNumber(powerLoad.currentAmps)} A` },
+              { label: "Node voltage", value: `${formatPowerNumber(powerLoad.voltage)} V` },
+              { label: "Served state", value: powerLoad.state },
+              { label: "Shedding reason", value: powerLoad.sheddingReason ?? "none" },
+            ]
+          : []),
       ],
       related: relatedFor(selection),
-      raw: load,
+      raw: powerLoad ? { scenario: load, power: powerLoad } : load,
     });
   }
   for (const diagnostic of input.diagnostics) {
@@ -990,4 +1047,8 @@ function requiredPoint(point: Point | undefined, id: string): Point {
     throw new Error(`Missing render point for ${id}`);
   }
   return point;
+}
+
+function formatPowerNumber(value: number): string {
+  return Number.isFinite(value) ? String(Math.round(value * 1000) / 1000) : "n/a";
 }
