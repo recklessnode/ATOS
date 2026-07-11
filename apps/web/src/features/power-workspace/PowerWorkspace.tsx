@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   analyzePowerNetwork,
   applyPowerPreset,
@@ -26,10 +26,14 @@ const OVERLAY_MODES = [
   { id: "load_state", label: "Load state" },
 ] as const satisfies readonly { id: PowerOverlayMode; label: string }[];
 
+const DEFAULT_PRESET_ID: PowerPresetId = "normal_operations";
+const DEFAULT_OVERLAY_MODE: PowerOverlayMode = "voltage";
+
 export function PowerWorkspace() {
   const document = useMemo(() => loadSixTileCityFixture(), []);
-  const [presetId, setPresetId] = useState<PowerPresetId>("normal_operations");
-  const [overlayMode, setOverlayMode] = useState<PowerOverlayMode>("voltage");
+  const focusRequestId = useRef(0);
+  const [presetId, setPresetId] = useState<PowerPresetId>(() => readInitialPresetId());
+  const [overlayMode, setOverlayMode] = useState<PowerOverlayMode>(() => readInitialOverlayMode());
   const [focusRequest, setFocusRequest] = useState<ScenarioMapFocusRequest | undefined>();
   const powerInput = useMemo(() => applyPowerPreset(document.electrical, presetId), [document, presetId]);
   const analysis = useMemo(() => analyzePowerNetwork(powerInput), [powerInput]);
@@ -40,7 +44,8 @@ export function PowerWorkspace() {
 
   function focusSelection(selection: ScenarioSelection | null): void {
     if (selection) {
-      setFocusRequest({ selection, requestId: Date.now() });
+      focusRequestId.current += 1;
+      setFocusRequest({ selection, requestId: focusRequestId.current });
     }
   }
 
@@ -448,4 +453,28 @@ function selectionForPowerTarget(
 
 function formatNumber(value: number): string {
   return Number.isFinite(value) ? String(Math.round(value * 100) / 100) : "n/a";
+}
+
+function readInitialPresetId(): PowerPresetId {
+  if (typeof window === "undefined") {
+    return DEFAULT_PRESET_ID;
+  }
+  const value = new URLSearchParams(window.location.search).get("powerPreset");
+  return isPowerPresetId(value) ? value : DEFAULT_PRESET_ID;
+}
+
+function readInitialOverlayMode(): PowerOverlayMode {
+  if (typeof window === "undefined") {
+    return DEFAULT_OVERLAY_MODE;
+  }
+  const value = new URLSearchParams(window.location.search).get("powerOverlay");
+  return isPowerOverlayMode(value) ? value : DEFAULT_OVERLAY_MODE;
+}
+
+function isPowerPresetId(value: string | null): value is PowerPresetId {
+  return POWER_PRESETS.some((preset) => preset.id === value);
+}
+
+function isPowerOverlayMode(value: string | null): value is PowerOverlayMode {
+  return OVERLAY_MODES.some((mode) => mode.id === value);
 }
