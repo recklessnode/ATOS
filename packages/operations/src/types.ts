@@ -57,6 +57,7 @@ export type ProjectedDispatchContext = {
   runtimeAssetStates: RuntimeAssetState[];
   activeReservations: RuntimeReservation[];
   unavailableResourceIds: StableId[];
+  unavailableAssetIds: StableId[];
   activeConsistIds: StableId[];
   currentTime: IsoDateTimeString;
   powerConstraintIds: StableId[];

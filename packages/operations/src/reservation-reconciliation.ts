@@ -55,7 +55,7 @@ export function reconcileReservations(input: ReservationReconciliationInput): Re
       .filter((reservation) => reservation.status === "active" || reservation.status === "held")
       .map((reservation) => reservation.reservation),
     ...input.revisedReservations,
-  ]);
+  ], resourceCapacityIndex(input.runtime.scenario));
 
   return {
     records: records.sort(compareRecord),
@@ -89,27 +89,64 @@ function reservationsOverlap(left: DispatchReservation, right: DispatchReservati
     Date.parse(right.startTime) < Date.parse(left.endTime);
 }
 
-function detectDuplicateOwnership(reservations: readonly DispatchReservation[]): ReservationConflictRecord[] {
+function detectDuplicateOwnership(
+  reservations: readonly DispatchReservation[],
+  resourceCapacity: ReadonlyMap<string, number>,
+): ReservationConflictRecord[] {
   const conflicts: ReservationConflictRecord[] = [];
-  const sorted = [...reservations].sort((left, right) => left.id.localeCompare(right.id));
-  for (let leftIndex = 0; leftIndex < sorted.length; leftIndex += 1) {
-    for (let rightIndex = leftIndex + 1; rightIndex < sorted.length; rightIndex += 1) {
-      const left = sorted[leftIndex];
-      const right = sorted[rightIndex];
-      if (!left || !right || left.id === right.id || left.missionPlanId === right.missionPlanId) {
-        continue;
-      }
-      if (reservationsOverlap(left, right)) {
-        conflicts.push({
-          id: `reservation-conflict:${left.resourceId}:${left.id}:${right.id}`,
-          resourceId: left.resourceId,
-          reservationIds: [left.id, right.id].sort(),
-          reason: `Reservations ${left.id} and ${right.id} overlap on ${left.resourceId}.`,
-        });
+  const resources = [...new Set(reservations.map((reservation) => reservation.resourceId))].sort();
+  for (const resourceId of resources) {
+    const capacity = resourceCapacity.get(resourceId) ?? 1;
+    if (!Number.isFinite(capacity)) {
+      continue;
+    }
+    const resourceReservations = reservations
+      .filter((reservation) => reservation.resourceId === resourceId)
+      .sort((left, right) => left.id.localeCompare(right.id));
+    for (const anchor of resourceReservations) {
+      const overlapping = resourceReservations.filter((candidate) => reservationsOverlap(anchor, candidate));
+      const ownerIds = new Set(overlapping.map((reservation) => reservation.missionPlanId));
+      if (ownerIds.size > capacity) {
+        const reservationIds = overlapping.map((reservation) => reservation.id).sort();
+        const id = `reservation-conflict:${resourceId}:${reservationIds.join("+")}`;
+        if (!conflicts.some((conflict) => conflict.id === id)) {
+          conflicts.push({
+            id,
+            resourceId,
+            reservationIds,
+            reason: `${ownerIds.size} mission owners overlap on ${resourceId}, exceeding capacity ${capacity}.`,
+          });
+        }
       }
     }
   }
   return conflicts.sort((left, right) => left.id.localeCompare(right.id));
+}
+
+function resourceCapacityIndex(scenario: ReservationReconciliationInput["runtime"]["scenario"]): Map<string, number> {
+  const capacity = new Map<string, number>();
+  for (const zone of scenario.serviceZones) {
+    capacity.set(`station-zone:${zone.id}`, zone.capacity);
+  }
+  for (const link of scenario.guideway.links) {
+    capacity.set(`guideway-link:${link.id}`, 1);
+  }
+  for (const vehicle of scenario.inventory.vehicles) {
+    capacity.set(`asset:${vehicle.id}`, 1);
+  }
+  for (const state of [
+    "nominal",
+    "degraded",
+    "brownout",
+    "overloaded",
+    "source_limited",
+    "non_converged",
+    "islanded",
+    "invalid",
+  ]) {
+    capacity.set(`power-window:${state}`, Number.POSITIVE_INFINITY);
+  }
+  return capacity;
 }
 
 function idsFor(

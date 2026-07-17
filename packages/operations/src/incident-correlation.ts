@@ -5,6 +5,11 @@ import type {
 
 export function correlateIncident(input: IncidentCorrelationInput): OperationsIncident {
   const event = input.runtime.eventHistory.find((candidate) => candidate.id === input.request.triggeredByEventId);
+  const reservationResourceIds = resolveReservationResourceIds(input, [
+    ...(event?.affectedResourceIds ?? []),
+    ...input.request.releasedReservationIds,
+    ...input.request.retainedReservationIds,
+  ]);
   const deficiencyIds = [
     ...(input.request.deficiency ? [input.request.deficiency.id] : []),
     ...(input.deficiencyCarryForward?.records.flatMap((record) => [
@@ -20,17 +25,24 @@ export function correlateIncident(input: IncidentCorrelationInput): OperationsIn
     affectedMissionIds: [input.request.missionId ?? ""].filter(Boolean).sort(),
     affectedChitIds: input.request.chitIds.slice().sort(),
     affectedAssetIds: input.request.affectedAssetIds.slice().sort(),
-    affectedResourceIds: [
-      ...(event?.affectedResourceIds ?? []),
-      ...input.request.releasedReservationIds,
-      ...input.request.retainedReservationIds,
-    ].sort(),
+    affectedResourceIds: reservationResourceIds,
     previousGenerationId: input.previousGenerationId,
     revisedGenerationId: input.revisedGenerationId,
     deficiencyIds: [...new Set(deficiencyIds)],
     resolutionState: incidentState(input),
     summary: incidentSummary(input),
   };
+}
+
+function resolveReservationResourceIds(
+  input: IncidentCorrelationInput,
+  ids: readonly string[],
+): string[] {
+  const reservationResourceById = new Map(input.runtime.reservations.map((reservation) => [
+    reservation.reservation.id,
+    reservation.reservation.resourceId,
+  ]));
+  return [...new Set(ids.map((id) => reservationResourceById.get(id) ?? id))].sort();
 }
 
 function incidentState(input: IncidentCorrelationInput): OperationsIncident["resolutionState"] {

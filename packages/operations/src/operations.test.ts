@@ -11,6 +11,7 @@ import {
   type SimulationRuntimeState,
 } from "@atos/simulation";
 import {
+  calculateOperationsMetrics,
   carryForwardDeficiencies,
   createDefaultOperationsSession,
   createOperationsSession,
@@ -79,6 +80,117 @@ describe("ATOS operations orchestration", () => {
     expect(projection.projectedScenario.inventory.vehicles.some((vehicle) => vehicle.state === "maintenance" || vehicle.state === "active")).toBe(true);
   });
 
+  it("passes runtime constraints and partially fulfilled quantities into the revised dispatch input", () => {
+    const input = createSimulationFixture("simple-passenger");
+    const initialized = initializeSimulation(input);
+    const passengerChit = input.dispatchResult.normalizedChits.find((chit) => (chit.quantity.passengers ?? 0) > 0);
+    const mission = initialized.missions.find((candidate) =>
+      passengerChit && candidate.chitProgress.some((progress) => progress.chitId === passengerChit.id)
+    );
+    const vehicle = initialized.assets.find((asset) => asset.kind === "vehicle");
+    const linkId = initialized.scenario.guideway.links[0]?.id;
+    const chitId = passengerChit?.id;
+    if (!mission || !vehicle || !linkId || !chitId) {
+      throw new Error("fixture missing mission, vehicle, link, or chit");
+    }
+    const runtime: SimulationRuntimeState = {
+      ...initialized,
+      clock: { ...initialized.clock, currentTime: "2026-07-10T00:02:00.000Z" },
+      faults: [{
+        id: "fault:vehicle:test",
+        type: "vehicle_unavailable",
+        targetId: vehicle.assetId,
+        startsAt: "2026-07-10T00:01:00.000Z",
+        behavior: "request_replanning",
+        severity: "error",
+        message: "Vehicle unavailable for projection test.",
+        raisedEventId: "event:fault:test",
+      }],
+      assets: initialized.assets.map((asset) => asset.assetId === vehicle.assetId
+        ? { ...asset, health: "faulted", faultIds: ["fault:vehicle:test"] }
+        : asset),
+      guidewayOccupancy: [{
+        id: "occupancy:guideway:test",
+        linkId,
+        missionId: "mission:other",
+        enteredAt: "2026-07-10T00:01:00.000Z",
+        exitAt: "2026-07-10T00:04:00.000Z",
+        assetIds: [vehicle.assetId],
+      }],
+      serviceOccupancy: [{
+        id: "occupancy:service:test",
+        resourceId: "station-zone:zone-passenger",
+        missionId: "mission:other",
+        action: "loading",
+        startTime: "2026-07-10T00:01:00.000Z",
+        endTime: "2026-07-10T00:04:00.000Z",
+        capacityUsed: 1,
+      }],
+      eventHistory: [{
+        id: "event:power:test",
+        sequence: 100,
+        timestamp: "2026-07-10T00:01:30.000Z",
+        type: "battery_reserve_violated",
+        missionId: mission.plan.id,
+        affectedAssetIds: [vehicle.assetId],
+        affectedResourceIds: [linkId],
+        payload: { reason: "battery reserve test" },
+        severity: "error",
+        status: "applied",
+      }],
+      missions: initialized.missions.map((candidate) => candidate.plan.id === mission.plan.id
+        ? {
+            ...candidate,
+            chitProgress: candidate.chitProgress.map((progress) => progress.chitId === chitId
+              ? {
+                  ...progress,
+                  unloaded: { passengers: 1 },
+                  status: "pending",
+                }
+              : progress),
+          }
+        : candidate),
+    };
+
+    const projection = projectRuntimeStateToDispatchInput(runtime);
+    const projectedChit = projection.projectedScenario.chits.find((chit) => chit.id === chitId);
+    const constraints = projection.dispatchInput.options?.runtimeConstraints;
+
+    expect(projectedChit?.quantity.passengers).toBe((passengerChit.quantity.passengers ?? 0) - 1);
+    expect(constraints?.unavailableAssetIds).toContain(vehicle.assetId);
+    expect(constraints?.unavailableResourceIds).toEqual(expect.arrayContaining([
+      `asset:${vehicle.assetId}`,
+      `guideway-link:${linkId}`,
+      "station-zone:zone-passenger",
+    ]));
+    expect(constraints?.powerConstraintIds).toContain(`guideway-link:${linkId}`);
+  });
+
+  it("marks already loaded chits active so they are not duplicated into a fresh dispatch plan", () => {
+    const input = createSimulationFixture("simple-passenger");
+    const initialized = initializeSimulation(input);
+    const mission = initialized.missions[0];
+    const chitId = mission?.chitProgress[0]?.chitId;
+    if (!mission || !chitId) {
+      throw new Error("fixture missing mission or chit");
+    }
+    const runtime: SimulationRuntimeState = {
+      ...initialized,
+      missions: initialized.missions.map((candidate) => candidate.plan.id === mission.plan.id
+        ? {
+            ...candidate,
+            chitProgress: candidate.chitProgress.map((progress) => progress.chitId === chitId
+              ? { ...progress, loaded: { passengers: 6 }, status: "loaded" }
+              : progress),
+          }
+        : candidate),
+    };
+
+    const projection = projectRuntimeStateToDispatchInput(runtime);
+    expect(projection.projectedScenario.chits.find((chit) => chit.id === chitId)?.status).toBe("active");
+    expect(planDispatch(projection.dispatchInput).missionPlans.some((plan) => plan.chitIds.includes(chitId))).toBe(false);
+  });
+
   it("reconciles retained, released, superseded, new, historical, and active-occupancy reservations", () => {
     let runtime = initializeSimulation(createSimulationFixture("consist-formation-split"));
     runtime = stepUntil(runtime, (state) => state.serviceOccupancy.some((occupancy) => occupancy.action === "loading"));
@@ -141,6 +253,53 @@ describe("ATOS operations orchestration", () => {
     expect(result.duplicateOwnershipConflicts.some((conflict) =>
       conflict.reservationIds.includes(first.id) && conflict.reservationIds.includes(duplicate.id)
     )).toBe(true);
+  });
+
+  it("correlates incidents to reservation resources instead of reservation IDs", () => {
+    const input = createSimulationFixture("simple-passenger");
+    const initialized = initializeSimulation(input);
+    const reservation = initialized.reservations[0]?.reservation;
+    if (!reservation) {
+      throw new Error("fixture missing reservation");
+    }
+    const runtime: SimulationRuntimeState = {
+      ...initialized,
+      eventHistory: [{
+        id: "event:reservation-resource:test",
+        sequence: 99,
+        timestamp: initialized.clock.currentTime,
+        type: "reservation_conflict",
+        missionId: reservation.missionPlanId,
+        affectedAssetIds: [],
+        affectedResourceIds: [reservation.id],
+        payload: {},
+        severity: "warning",
+        status: "applied",
+      }],
+    };
+    const session = createOperationsSession({
+      scenario: input.scenario,
+      dispatchResult: input.dispatchResult,
+      runtime,
+    });
+    const requested = requestManualReplan(session, { note: "resource correlation" });
+    const manualRequest = requested.pendingRequests.find((request) => request.source === "operator");
+    if (!manualRequest) {
+      throw new Error("manual request missing");
+    }
+    const request = {
+      ...manualRequest,
+      triggeredByEventId: "event:reservation-resource:test",
+      retainedReservationIds: [reservation.id],
+    };
+    const correlated = createOperationsSession({
+      scenario: input.scenario,
+      dispatchResult: input.dispatchResult,
+      runtime: { ...runtime, replanningRequests: [request] },
+    });
+
+    expect(correlated.incidents[0]?.affectedResourceIds).toContain(reservation.resourceId);
+    expect(correlated.incidents[0]?.affectedResourceIds).not.toContain(reservation.id);
   });
 
   it("creates meaningful plan diffs for unchanged, delayed, cancelled, and replacement missions", () => {
@@ -209,6 +368,17 @@ describe("ATOS operations orchestration", () => {
     expect(replanned.currentGenerationId).toBe(replanned.generations[1]?.id);
     expect(replanned.planDiff.records.length).toBeGreaterThan(0);
     expect(replanned.incidents.some((incident) => incident.resolutionState === "replanned" || incident.resolutionState === "resolved")).toBe(true);
+    expect(replanned.runtime.dispatchResult).toEqual(replanned.generations[1]?.dispatchResult);
+    expect(replanned.runtime.replanningRequests.some((request) => request.id === session.pendingRequests[0]?.id)).toBe(false);
+
+    const previousPlans = session.generations[0]?.dispatchResult.missionPlans ?? [];
+    const revisedPlans = replanned.generations[1]?.dispatchResult.missionPlans ?? [];
+    const scopedChitIds = new Set(replanned.generations[1]?.policyDecision?.scopeChitIds ?? []);
+    const unaffectedPrevious = previousPlans.filter((plan) => !plan.chitIds.some((chitId) => scopedChitIds.has(chitId)));
+    for (const plan of unaffectedPrevious) {
+      expect(revisedPlans.find((candidate) => candidate.id === plan.id)).toEqual(plan);
+    }
+    expect(replanned.generations[1]?.projection?.dispatchInput.options?.runtimeConstraints?.allowedChitIds).toEqual([...scopedChitIds].sort());
   });
 
   it("adds and executes a deterministic manual full replan request", () => {
@@ -233,6 +403,56 @@ describe("ATOS operations orchestration", () => {
     expect(session.metrics.reservationConflictRate).toBeGreaterThanOrEqual(0);
     expect(session.metrics.planningChurn).toBeGreaterThanOrEqual(0);
     expect(Object.keys(session.metrics.missionFailuresByCause).length).toBeGreaterThan(0);
+  });
+
+  it("classifies passenger and cargo metrics from chit metadata rather than ID substrings", () => {
+    const base = createOperationsSessionFromFixture("consist-formation-split");
+    const generation = base.generations[0];
+    const passenger = generation.dispatchResult.normalizedChits.find((chit) => chit.serviceMetadata.passengerClass);
+    const cargo = generation.dispatchResult.normalizedChits.find((chit) => chit.serviceMetadata.cargo);
+    if (!passenger || !cargo) {
+      throw new Error("fixture missing passenger or cargo chit");
+    }
+    const renamed = new Map([
+      [passenger.id, "demand-alpha"],
+      [cargo.id, "demand-beta"],
+    ]);
+    const rename = (id: string) => renamed.get(id) ?? id;
+    const dispatchResult = {
+      ...generation.dispatchResult,
+      normalizedChits: generation.dispatchResult.normalizedChits.map((chit) =>
+        renamed.has(chit.id) ? { ...chit, id: rename(chit.id), sourceChitId: rename(chit.id) } : chit
+      ),
+      missionPlans: generation.dispatchResult.missionPlans.map((plan) => ({
+        ...plan,
+        chitId: rename(plan.chitId),
+        chitIds: plan.chitIds.map(rename),
+      })),
+      reservations: generation.dispatchResult.reservations.map((reservation) => ({
+        ...reservation,
+        chitIds: reservation.chitIds.map(rename),
+      })),
+      transientSuperWorkers: generation.dispatchResult.transientSuperWorkers.map((worker) => ({
+        ...worker,
+        chitIds: worker.chitIds.map(rename),
+      })),
+    };
+    const missionById = new Map(dispatchResult.missionPlans.map((plan) => [plan.id, plan]));
+    const runtime: SimulationRuntimeState = {
+      ...base.runtime,
+      dispatchResult,
+      missions: base.runtime.missions.map((mission) => ({
+        ...mission,
+        plan: missionById.get(mission.plan.id) ?? mission.plan,
+        startedAt: "2026-07-10T00:05:00.000Z",
+        completedAt: "2026-07-10T01:00:00.000Z",
+      })),
+    };
+
+    const metrics = calculateOperationsMetrics(runtime, [{ ...generation, dispatchResult }], 0);
+
+    expect(metrics.averagePassengerWaitMinutes).toBeGreaterThan(0);
+    expect(metrics.averageCargoLatenessMinutes).toBeGreaterThan(0);
   });
 
   it("keeps package source free of React imports", () => {

@@ -33,6 +33,14 @@ type CandidateEvaluation = DispatchCandidate & {
   supportWorkers: DispatchWorker[];
 };
 
+type NormalizedRuntimeConstraints = {
+  allowedChitIds: ReadonlySet<StableId>;
+  retainedReservations: DispatchReservation[];
+  unavailableResourceIds: ReadonlySet<StableId>;
+  unavailableAssetIds: ReadonlySet<StableId>;
+  powerConstraintIds: StableId[];
+};
+
 export function createDispatchPlannerInput(
   scenario: ScenarioDocumentV1,
   options: DispatchPlannerOptions = {},
@@ -52,20 +60,39 @@ export function createDispatchPlannerInput(
   };
 }
 
+function normalizeRuntimeConstraints(
+  constraints: DispatchPlannerOptions["runtimeConstraints"] | undefined,
+): NormalizedRuntimeConstraints {
+  const unavailableResourceIds = new Set(constraints?.unavailableResourceIds ?? []);
+  const unavailableAssetIds = new Set(constraints?.unavailableAssetIds ?? []);
+  return {
+    allowedChitIds: new Set(constraints?.allowedChitIds ?? []),
+    retainedReservations: [...(constraints?.retainedReservations ?? [])]
+      .map((reservation) => ({ ...reservation }))
+      .sort(compareById),
+    unavailableResourceIds,
+    unavailableAssetIds,
+    powerConstraintIds: [...new Set(constraints?.powerConstraintIds ?? [])].sort(),
+  };
+}
+
 export function planDispatch(input: DispatchPlannerInput): DispatchPlannerResult {
   const scenario = input.scenario;
   const generatedAt = input.options?.currentTime ?? scenario.simulation.currentTime;
   const powerAnalysis = input.powerAnalysis ?? analyzePowerNetwork(input.electrical);
+  const runtimeConstraints = normalizeRuntimeConstraints(input.options?.runtimeConstraints);
   const normalizedChits = [
     ...normalizeDispatchChits(scenario.chits, generatedAt),
     ...(input.options?.generatedChits ?? []),
-  ].sort((left, right) => {
+  ].filter((chit) =>
+    runtimeConstraints.allowedChitIds.size === 0 || runtimeConstraints.allowedChitIds.has(chit.id)
+  ).sort((left, right) => {
     const scoreCompare = right.rankScore - left.rankScore;
     return scoreCompare === 0 ? left.id.localeCompare(right.id) : scoreCompare;
   });
-  const assets = buildDispatchAssets(scenario);
+  const assets = applyRuntimeAssetConstraints(buildDispatchAssets(scenario), runtimeConstraints);
   const workers = buildDispatchWorkers(assets);
-  const powerGate = evaluatePowerLaunchGate(powerAnalysis, assets);
+  const powerGate = applyRuntimePowerConstraints(evaluatePowerLaunchGate(powerAnalysis, assets), runtimeConstraints);
   const assetIndex = assetById(assets);
   const vehicleWorkers = workers.filter((worker) => worker.source === "vehicle").sort(compareById);
   const resourceCapacity = reservationCapacityIndex(scenario);
@@ -73,7 +100,7 @@ export function planDispatch(input: DispatchPlannerInput): DispatchPlannerResult
 
   const allCandidates: DispatchCandidate[] = [];
   const transientSuperWorkers: TransientSuperWorker[] = [];
-  const reservations: DispatchReservation[] = [];
+  const reservations: DispatchReservation[] = runtimeConstraints.retainedReservations.map((reservation) => ({ ...reservation }));
   const missionPlans: MissionPlan[] = [];
   const deficiencyGates: DeficiencyGate[] = [];
 
@@ -88,6 +115,7 @@ export function planDispatch(input: DispatchPlannerInput): DispatchPlannerResult
         assets,
         powerGate,
         input,
+        runtimeConstraints,
       }))
       .sort(compareCandidateEvaluations);
 
@@ -95,7 +123,9 @@ export function planDispatch(input: DispatchPlannerInput): DispatchPlannerResult
     const eligible = evaluations.filter((candidate) => candidate.match.eligible && candidate.route.reachable);
     const launchable = eligible.filter((candidate) => candidate.launchGate.status !== "blocked");
     const window = planningWindowForGroup(group, generatedAt, launchable[0]?.route);
-    const chosen = launchable.find((candidate) => reservationsAvailable(candidate, group, window, reservations, resourceCapacity));
+    const chosen = launchable.find((candidate) =>
+      reservationsAvailable(candidate, group, window, reservations, resourceCapacity, runtimeConstraints)
+    );
 
     if (!chosen) {
       if (group.chits.length > 1) {
@@ -147,6 +177,46 @@ export function planDispatch(input: DispatchPlannerInput): DispatchPlannerResult
       findings: powerAnalysis.findings,
       recommendations: powerAnalysis.recommendations,
     },
+  };
+}
+
+function applyRuntimeAssetConstraints(
+  assets: readonly DispatchAsset[],
+  constraints: NormalizedRuntimeConstraints,
+): DispatchAsset[] {
+  return assets.map((asset) => {
+    const resourceIds = resourceIdsForAsset(asset);
+    const unavailable = constraints.unavailableAssetIds.has(asset.id) ||
+      resourceIds.some((resourceId) => constraints.unavailableResourceIds.has(resourceId));
+    return unavailable ? { ...asset, state: "offline" } : { ...asset };
+  });
+}
+
+function resourceIdsForAsset(asset: DispatchAsset): StableId[] {
+  const rawId = asset.id.startsWith("asset:") ? asset.id.slice("asset:".length) : asset.id;
+  return uniqueSorted([
+    asset.id,
+    rawId,
+    `asset:${rawId}`,
+    asset.serviceZoneId,
+    asset.serviceZoneId ? `station-zone:${asset.serviceZoneId}` : undefined,
+    asset.kind === "guideway" ? `guideway-link:${rawId}` : undefined,
+  ].filter((resourceId): resourceId is StableId => Boolean(resourceId)));
+}
+
+function applyRuntimePowerConstraints(
+  gate: PowerLaunchGate,
+  constraints: NormalizedRuntimeConstraints,
+): PowerLaunchGate {
+  if (constraints.powerConstraintIds.length === 0) {
+    return gate;
+  }
+  return {
+    ...gate,
+    status: "blocked",
+    message: `${gate.message} Runtime power constraints remain active on ${constraints.powerConstraintIds.join(", ")}.`,
+    reasonCodes: uniqueSorted([...gate.reasonCodes, "runtime-power-constraint"]),
+    affectedPowerIds: uniqueSorted([...gate.affectedPowerIds, ...constraints.powerConstraintIds]),
   };
 }
 
@@ -291,17 +361,28 @@ function compareChitsForGroup(left: DispatchChit | undefined, right: DispatchChi
   return dueCompare === 0 ? left.id.localeCompare(right.id) : dueCompare;
 }
 
-function routeForGroup(group: DispatchChitGroup, input: DispatchPlannerInput): GuidewayRoute {
+function routeForGroup(
+  group: DispatchChitGroup,
+  input: DispatchPlannerInput,
+  constraints: NormalizedRuntimeConstraints,
+): GuidewayRoute {
   const endpoints = uniqueEndpoints(group.chits.flatMap((chit) => [chit.origin, chit.destination]));
+  const blockUnavailableLinks = (route: GuidewayRoute): GuidewayRoute =>
+    route.linkIds.some((linkId) =>
+      constraints.unavailableResourceIds.has(linkId) ||
+      constraints.unavailableResourceIds.has(`guideway-link:${linkId}`)
+    )
+      ? { ...route, reachable: false }
+      : route;
   if (endpoints.length === 0) {
-    return routeBetweenEndpoints(input.guideway, group.chits[0].origin, group.chits[0].destination);
+    return blockUnavailableLinks(routeBetweenEndpoints(input.guideway, group.chits[0].origin, group.chits[0].destination));
   }
   if (endpoints.length === 1) {
-    return routeBetweenEndpoints(input.guideway, endpoints[0], endpoints[0]);
+    return blockUnavailableLinks(routeBetweenEndpoints(input.guideway, endpoints[0], endpoints[0]));
   }
 
   const segments = endpoints.slice(1).map((endpoint, index) =>
-    routeBetweenEndpoints(input.guideway, endpoints[index], endpoint)
+    blockUnavailableLinks(routeBetweenEndpoints(input.guideway, endpoints[index], endpoint))
   );
   if (segments.some((route) => !route.reachable)) {
     return segments.find((route) => !route.reachable) as GuidewayRoute;
@@ -359,11 +440,12 @@ function evaluateCandidate(input: {
   assets: readonly DispatchAsset[];
   powerGate: PowerLaunchGate;
   input: DispatchPlannerInput;
+  runtimeConstraints: NormalizedRuntimeConstraints;
 }): CandidateEvaluation {
   const supportWorkers = supportWorkersForGroup(input.group, input.workers);
   const primaryWorkers = selectPrimaryWorkersForGroup(input.group, input.primaryWorker, input.vehicleWorkers);
   const match = matchWorkersToGroup(input.group, primaryWorkers, supportWorkers, input.assets);
-  const route = routeForGroup(input.group, input.input);
+  const route = routeForGroup(input.group, input.input, input.runtimeConstraints);
   const score = scoreCandidate(input.group, primaryWorkers, supportWorkers, route, input.powerGate, match);
   const supportWorkerIds = supportWorkers.map((worker) => worker.id).sort();
   const primaryWorkerIds = primaryWorkers.map((worker) => worker.id).sort();
@@ -724,8 +806,12 @@ function reservationsAvailable(
   window: PlanningWindow,
   reservations: readonly DispatchReservation[],
   resourceCapacity: ReadonlyMap<StableId, number>,
+  constraints: NormalizedRuntimeConstraints,
 ): boolean {
   return reservationResources(candidate, group).every((resourceId) => {
+    if (constraints.unavailableResourceIds.has(resourceId)) {
+      return false;
+    }
     const overlappingReservations = reservations.filter((reservation) =>
       reservation.resourceId === resourceId && reservationsOverlap(window, reservation)
     );

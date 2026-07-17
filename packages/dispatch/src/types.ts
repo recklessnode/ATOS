@@ -279,6 +279,13 @@ export type DispatchPlannerOptions = {
   generatedChits?: readonly DispatchChit[];
   powerPreset?: PowerPresetId;
   demandSeed?: string;
+  runtimeConstraints?: {
+    allowedChitIds?: readonly StableId[];
+    retainedReservations?: readonly DispatchReservation[];
+    unavailableResourceIds?: readonly StableId[];
+    unavailableAssetIds?: readonly StableId[];
+    powerConstraintIds?: readonly StableId[];
+  };
 };
 
 export type DispatchPlannerInput = {
