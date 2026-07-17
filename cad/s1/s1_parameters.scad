@@ -3,52 +3,81 @@
 
 $fn = 32;
 
+s1_project_scale = 87.1;
+
 s1_length_over_coupler_faces = 320;
-s1_structural_deck_length = 280;
-s1_sled_width = 72;
-s1_sled_height = 14;
-s1_deck_height_above_g0 = 30;
-s1_wall_thickness = 2.4;
-s1_corner_radius = 6;
+s1_sled_body_length = 300;
+s1_structural_deck_length = 286;
+s1_sled_width = 42;
+s1_stabilization_envelope_width = 48;
+s1_sled_height = 10;
+s1_deck_height_above_g0 = 12;
+s1_wall_thickness = 1.8;
+s1_corner_radius = 4;
 s1_printer_tolerance = 0.35;
 s1_min_feature = 1.2;
 
-s1_module_length = 240;
-s1_module_width = 64;
-s1_module_interface_height = 5;
-s1_module_corner_radius = 7;
+s1_module_length = 180;
+s1_module_width = 40;
+s1_module_interface_height = 4;
+s1_module_corner_radius = 4;
 
-s1_mount_x = 90;
-s1_mount_y = 24;
-s1_mount_pin_diameter = 5;
+s1_mount_x = 70;
+s1_mount_y = 15.5;
+s1_mount_pin_diameter = 3.4;
 s1_mount_clearance = 0.35;
-s1_latch_slot_length = 18;
-s1_latch_slot_width = 6;
+s1_latch_slot_length = 12;
+s1_latch_slot_width = 3.8;
 
-s1_coupler_pivot_spacing = 280;
-s1_coupler_drawbar_length = 28;
-s1_coupler_pivot_diameter = 8;
+s1_coupler_pivot_spacing = 278;
+s1_coupler_drawbar_length = 20;
+s1_coupler_pivot_diameter = 5.5;
 s1_coupler_yaw_normal_deg = 15;
 s1_coupler_yaw_hard_stop_deg = 18;
-s1_coupler_vertical_play = 1.5;
+s1_coupler_vertical_play = 1.0;
 
-s1_ballast_pocket_length = 36;
-s1_ballast_pocket_width = 18;
-s1_ballast_pocket_depth = 6;
-s1_ballast_channel_length = 108;
-s1_ballast_channel_width = 14;
-s1_ballast_channel_depth = 5;
+s1_ballast_pocket_length = 24;
+s1_ballast_pocket_width = 10;
+s1_ballast_pocket_depth = 4;
+s1_ballast_channel_length = 82;
+s1_ballast_channel_width = 8;
+s1_ballast_channel_depth = 4;
 
-s1_split_key_length = 14;
-s1_split_key_width = 8;
-s1_split_key_height = 5;
+s1_split_key_length = 10;
+s1_split_key_width = 5;
+s1_split_key_height = 3;
 s1_split_plane_x = 0;
 
-s1_support_node_x = 180;
-s1_support_node_y = 50;
+s1_support_node_x = 176;
+s1_support_node_y = 30;
 
 s1_bed_x = 220;
 s1_bed_y = 220;
+s1_h2c_bed_x = 320;
+s1_h2c_bed_y = 320;
+s1_h2c_margin = 5;
+
+s1_iso_container_width = 28;
+s1_iso_container_height = 30;
+s1_iso_high_cube_container_height = 33.3;
+s1_iso_40ft_length = 140;
+s1_iso_20ft_length = 70;
+s1_container_fit_clearance_length = 1.5;
+s1_container_fit_clearance_width = 1.2;
+s1_container_retention_clearance = 4;
+s1_container_retention_rail_height = 2.4;
+s1_container_retention_rail_width = 2.0;
+s1_container_20ft_gap = 4;
+
+s1_commuter_pod_height = 34;
+s1_overnight_pod_height = 40;
+s1_battery_pod_height = 32;
+s1_container_adapter_height = 30;
+s1_open_bin_height = 32;
+s1_ballast_module_height = 46;
+s1_split_key_y = 12;
+s1_ballast_pocket_x = 52;
+s1_ballast_pocket_y = 10;
 
 module rounded_box(size, radius = 3) {
   r = min(radius, min(size[0], size[1]) / 2 - 0.01);
@@ -83,8 +112,8 @@ module support_node_positions() {
 }
 
 module ballast_pocket_positions() {
-  for (x = [-70, 70])
-    for (y = [-20, 20])
+  for (x = [-s1_ballast_pocket_x, s1_ballast_pocket_x])
+    for (y = [-s1_ballast_pocket_y, s1_ballast_pocket_y])
       translate([x, y, 0]) children();
 }
 
@@ -127,7 +156,7 @@ module split_rear_clip(length, width = 180, height = 180) {
 }
 
 module split_alignment_male(z = 2, clearance = 0) {
-  for (y = [-18, 18])
+  for (y = [-s1_split_key_y, s1_split_key_y])
     translate([
       -s1_split_key_length + clearance,
       y - s1_split_key_width / 2 + clearance,
@@ -149,7 +178,7 @@ module split_alignment_sockets(side = "front", z = 0.4) {
   socket_length = s1_split_key_length + 10;
   socket_width = s1_split_key_width + 2 * s1_printer_tolerance;
   x_center = side == "rear" ? -socket_length / 2 + 0.4 : socket_length / 2 - 0.4;
-  for (y = [-18, 18])
+  for (y = [-s1_split_key_y, s1_split_key_y])
     translate([x_center, y, -0.05])
       rounded_box([socket_length, socket_width, socket_depth + 0.05], 1.1);
 }

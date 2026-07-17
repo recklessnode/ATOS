@@ -55,19 +55,21 @@ All module manifests shall report center of mass relative to M0/X0/Y0 in millime
 
 ## Baseline geometry
 
-The values below inherit the current S1 concept and remain configurable:
+The values below inherit the Issue #21 1:87.1 dimensional basis and remain configurable. See [S1 1:87 Dimensional Basis](s1-1-87-dimensional-basis.md) for the full-size assumptions, purchased-container fit basis, and comparison with the earlier wider prototype.
 
 | Parameter | Symbol | Provisional value |
 |---|---:|---:|
 | Length over coupler faces | `L_o` | 320 mm |
-| Structural deck length | `L_d` | 280 mm |
-| Overall sled width | `W_s` | 72 mm |
-| Module footprint length | `L_m` | 240 mm |
-| Module footprint width | `W_m` | 64 mm |
-| Deck height above guideway datum | `H_d` | 30 mm |
-| Nominal coupler pivot spacing | `L_p` | 280 mm |
-| Provisional support-node longitudinal spacing | `S_x` | 180 mm |
-| Provisional support-node lateral spacing | `S_y` | 50 mm |
+| Printed sled body length | `L_b` | 300 mm |
+| Structural deck length | `L_d` | 286 mm |
+| Overall sled body width | `W_s` | 42 mm |
+| Stabilization envelope width | `W_stab` | 48 mm |
+| Module footprint length | `L_m` | 180 mm |
+| Module footprint width | `W_m` | 40 mm |
+| Deck height above guideway datum | `H_d` | 12 mm |
+| Nominal coupler pivot spacing | `L_p` | 278 mm |
+| Provisional support-node longitudinal spacing | `S_x` | 176 mm |
+| Provisional support-node lateral spacing | `S_y` | 30 mm |
 
 The support-node spacings are analysis assumptions until the levitation, guidance, or passive-running arrangement is selected.
 
@@ -162,7 +164,7 @@ Until physical tests replace them, use:
 | Two coupled S1 vehicles | 750 mm |
 | Three or more coupled S1 vehicles | 900 mm |
 | Reverse curve without tangent section | prohibited |
-| Reverse curve with tangent section | tangent >= one coupler-pivot spacing, initially 280 mm |
+| Reverse curve with tangent section | tangent >= one coupler-pivot spacing, initially 278 mm |
 
 These are layout and prototype-test starting values, not proven minima.
 
@@ -421,7 +423,7 @@ mass_properties:
     z_mm: 5.0
 
 geometry:
-  static_envelope_class: S1-P240
+  static_envelope_class: S1-P180
   minimum_curve_radius_mm: 750
   maximum_coupler_yaw_deg: 15
   dynamic_clearance_allowance_mm: 5
@@ -434,7 +436,7 @@ limits:
 
 payload:
   type: passengers
-  count: 9
+  count: 40
   shift_risk: low
 
 route_admission:
@@ -599,7 +601,7 @@ All tests shall record configuration, material, print settings, ballast location
 **Method**
 
 - Test two- and three-vehicle consists.
-- Include a reverse curve with the provisional 280 mm tangent.
+- Include a reverse curve with the provisional 278 mm tangent.
 
 **Pass criteria**
 

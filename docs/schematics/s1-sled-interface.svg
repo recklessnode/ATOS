@@ -20,7 +20,7 @@
   </defs>
 
   <rect class="bg" x="0" y="0" width="960" height="560"/>
-  <text class="label" x="36" y="38">S1 sled interface - provisional printable prototype defaults</text>
+  <text class="label" x="36" y="38">S1 sled interface - 1:87 recalibrated prototype defaults</text>
   <text class="note" x="36" y="60">All dimensions are configurable CAD defaults and are not production certification limits.</text>
 
   <g transform="translate(80 110)">
@@ -54,13 +54,13 @@
     <text class="small" x="584" y="100">coupler pivot C0</text>
 
     <line class="dim" x1="0" y1="188" x2="640" y2="188"/>
-    <text class="small" x="265" y="210">320 mm over coupler faces</text>
+    <text class="small" x="232" y="210">300 mm printed body / 320 mm over coupler faces</text>
     <line class="dim" x1="40" y1="166" x2="600" y2="166"/>
-    <text class="small" x="270" y="184">280 mm structural deck</text>
+    <text class="small" x="270" y="184">286 mm structural deck</text>
     <line class="dim" x1="80" y1="-40" x2="560" y2="-40"/>
-    <text class="small" x="268" y="-48">240 x 64 mm module footprint</text>
+    <text class="small" x="268" y="-48">180 x 40 mm module footprint</text>
     <line class="dim" x1="714" y1="0" x2="714" y2="144"/>
-    <text class="small" x="724" y="78">72 mm sled width</text>
+    <text class="small" x="724" y="78">42 mm body / 48 mm stabilization width</text>
   </g>
 
   <g transform="translate(80 410)">
@@ -74,10 +74,9 @@
     <text class="small" x="690" y="62">G0 guideway datum</text>
     <text class="small" x="690" y="4">D0/M0 deck and module datum</text>
     <line class="dim" x1="732" y1="0" x2="732" y2="58"/>
-    <text class="small" x="746" y="34">30 mm deck height default</text>
+    <text class="small" x="746" y="34">12 mm deck height default</text>
     <rect class="ballast" x="272" y="-108" width="96" height="22" rx="5"/>
     <line class="datum" x1="320" y1="-128" x2="320" y2="-80"/>
     <text class="small" x="378" y="-92">optional elevated CG ballast mount</text>
   </g>
 </svg>
-

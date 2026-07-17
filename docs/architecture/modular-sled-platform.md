@@ -20,19 +20,21 @@ Keeping the sled identity separate from module identity lets ATOS:
 
 ## S1 baseline geometry
 
-The current printable prototype uses configurable defaults:
+The current printable prototype uses configurable Issue #21 defaults derived from the 1:87.1 dimensional basis:
 
 | Parameter | Default |
 |---|---:|
 | Length over coupler faces | 320 mm |
-| Structural deck length | 280 mm |
-| Overall width | 72 mm |
-| Deck height above guideway datum | 30 mm |
-| Module footprint | 240 x 64 mm |
+| Printed sled body length | 300 mm |
+| Structural deck length | 286 mm |
+| Sled body width | 42 mm |
+| Stabilization envelope width | 48 mm |
+| Deck height above guideway datum | 12 mm |
+| Module footprint | 180 x 40 mm |
 | Module attachment stations | 4 |
 | Prototype target module mass | up to 1.5 kg |
 
-These values are starting points for printed fit and loading experiments. Measured replacements belong in the versioned CAD parameters, manifests, and `docs/engineering/s1-vehicle-dynamics-loading-envelope.md`.
+These values are starting points for printed fit and loading experiments. The full-size assumptions, purchased HO container pocket dimensions, and comparison with the earlier wider prototype are documented in `docs/engineering/s1-1-87-dimensional-basis.md`. Measured replacements belong in the versioned CAD parameters, manifests, and `docs/engineering/s1-vehicle-dynamics-loading-envelope.md`.
 
 ## Datums
 
@@ -142,14 +144,14 @@ The machine-readable manifests under `schema/examples/` are examples of this adm
 
 ## Validation artifacts
 
-Issue #17 creates the first S1 printable prototype kit:
+Issue #17 created the first S1 printable prototype kit, and Issue #21 recalibrates that kit around the 1:87.1 dimensional basis:
 
 - parametric OpenSCAD in `cad/s1/`;
 - generated STL assets in `cad/s1/stl/`;
+- generated H2C-oriented 3MF projects in `cad/s1/3mf/`;
 - printable fixtures for CG, articulation, and clearance testing;
 - machine-readable manifests in `schema/examples/`;
 - validation tooling in `tools/cad/`;
-- the provisional loading envelope in `docs/engineering/`.
+- the provisional loading envelope and dimensional basis in `docs/engineering/`.
 
 All outputs remain prototype evidence until measured physical test results replace assumptions through reviewed revisions.
-

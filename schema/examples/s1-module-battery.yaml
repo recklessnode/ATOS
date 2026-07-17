@@ -6,7 +6,7 @@ metadata:
   status: provisional_prototype
 interface:
   class: S1
-  footprint_mm: { length: 240, width: 64 }
+  footprint_mm: { length: 180, width: 40 }
   required_attachment_stations: [front_left, front_right, rear_left, rear_right]
 mass_properties:
   tare_mass_kg: 0.95
@@ -26,8 +26,8 @@ payload:
   nominal_energy_wh: 120
   shift_risk: low
 envelope:
-  class: S1-E240
-  static_bbox_mm: { length: 240, width: 64, height_above_deck: 44 }
+  class: S1-E180
+  static_bbox_mm: { length: 180, width: 40, height_above_deck: 36.6 }
   minimum_curve_radius_mm: 650
   dynamic_clearance_allowance_mm: 5
 limits:
@@ -49,4 +49,3 @@ route_compatibility:
     - uncertain_mass_or_cg
     - thermal_state_unknown
     - battery_isolation_fault
-
