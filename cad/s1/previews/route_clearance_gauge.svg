@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="420" viewBox="0 0 640 420" role="img">
+  <title>Route clearance gauge STL-derived preview</title>
+  <rect width='640' height='420' fill='#f6f8f7'/>
+  <text x='28' y='34' font-family='Arial, sans-serif' font-size='20' font-weight='700' fill='#1e2b27'>Route clearance gauge</text>
+  <text x='28' y='58' font-family='Arial, sans-serif' font-size='12' fill='#536862'>route_clearance_gauge.stl</text>
+  <text x='28' y='76' font-family='Arial, sans-serif' font-size='12' fill='#536862'>bbox 160.00 x 116.00 x 36.00 mm</text>
+  <g aria-label='isometric projection'>
+    <rect x='28.0' y='90.0' width='260.0' height='116.0' rx='8' fill='#ffffff' stroke='#c7d4ce'/>
+    <text x='40.0' y='106.0' font-family='Arial, sans-serif' font-size='11' font-weight='700' fill='#38524b'>isometric</text>
+    <polygon points='64.4,160.3 64.5,160.5 64.6,160.7 64.9,160.9 102.5,179.5 102.7,179.6 103.4,179.9 123.0,187.4 141.3,191.8 141.8,191.9 142.3,192.0 142.9,192.0 143.5,192.0 144.0,191.9 190.9,184.3 191.7,184.0 251.1,148.7 251.4,148.5 251.5,148.3 251.6,148.1 251.6,141.7 251.5,141.5 251.4,141.3 251.1,141.1 250.7,140.9 179.3,112.0 175.2,110.3 174.7,110.2 174.2,110.1 173.7,110.0 173.1,110.0 172.5,110.0 172.0,110.1 171.5,110.2 171.1,110.3 65.3,153.1 64.9,153.3 64.6,153.5 64.5,153.7 64.4,153.9' fill='#dbe8e3' stroke='#163d35' stroke-width='2'/>
+  </g>
+  <g aria-label='top projection'>
+    <rect x='320.0' y='90.0' width='260.0' height='116.0' rx='8' fill='#ffffff' stroke='#c7d4ce'/>
+    <text x='332.0' y='106.0' font-family='Arial, sans-serif' font-size='11' font-weight='700' fill='#38524b'>top</text>
+    <polygon points='393.4,189.9 393.5,190.3 393.6,190.7 393.8,191.1 394.1,191.4 394.4,191.6 394.8,191.8 395.2,192.0 395.6,192.0 504.4,192.0 504.8,192.0 505.2,191.8 505.6,191.6 505.9,191.4 506.2,191.1 506.4,190.7 506.5,190.3 506.6,189.9 506.6,112.1 506.5,111.7 506.4,111.3 506.2,110.9 505.9,110.6 505.6,110.4 505.2,110.2 504.8,110.0 504.4,110.0 395.6,110.0 395.2,110.0 394.8,110.2 394.4,110.4 394.1,110.6 393.8,110.9 393.6,111.3 393.5,111.7 393.4,112.1' fill='#dbe8e3' stroke='#163d35' stroke-width='2'/>
+  </g>
+  <g aria-label='side projection'>
+    <rect x='28.0' y='235.0' width='260.0' height='116.0' rx='8' fill='#ffffff' stroke='#c7d4ce'/>
+    <text x='40.0' y='251.0' font-family='Arial, sans-serif' font-size='11' font-weight='700' fill='#38524b'>side</text>
+    <polygon points='40.0,322.6 276.0,322.6 276.0,310.8 240.6,280.5 225.9,269.4 90.2,269.4 75.4,280.5 40.0,310.8' fill='#dbe8e3' stroke='#163d35' stroke-width='2'/>
+  </g>
+  <g aria-label='front projection'>
+    <rect x='320.0' y='235.0' width='260.0' height='116.0' rx='8' fill='#ffffff' stroke='#c7d4ce'/>
+    <text x='332.0' y='251.0' font-family='Arial, sans-serif' font-size='11' font-weight='700' fill='#38524b'>front</text>
+    <polygon points='332.0,332.6 568.0,332.6 568.0,316.3 523.2,259.4 515.1,259.4 350.3,274.6 332.0,316.3' fill='#dbe8e3' stroke='#163d35' stroke-width='2'/>
+  </g>
+</svg>

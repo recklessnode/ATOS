@@ -1,0 +1,94 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="980" height="620" viewBox="0 0 980 620" role="img" aria-labelledby="title desc">
+  <title id="title">S1 reference mission modules</title>
+  <desc id="desc">Reference module family showing commuter, overnight, battery, container, open bin, and ballast modules on the same S1 footprint.</desc>
+  <defs>
+    <style>
+      .bg { fill: #f8faf8; }
+      .footprint { fill: none; stroke: #74877f; stroke-width: 1.5; stroke-dasharray: 6 5; }
+      .pod { fill: #dce9e4; stroke: #1f302b; stroke-width: 2; }
+      .glass { fill: #8bb7c4; stroke: #34544b; stroke-width: 1.5; }
+      .service { fill: #c9d2cf; stroke: #33423e; stroke-width: 1.5; }
+      .battery { fill: #cbd5bd; stroke: #33423e; stroke-width: 1.5; }
+      .cargo { fill: #d5d7d8; stroke: #33423e; stroke-width: 1.5; }
+      .bin { fill: #d9cba5; stroke: #574a25; stroke-width: 1.5; }
+      .ballast { fill: #f3c96b; stroke: #7a5c14; stroke-width: 1.5; }
+      .label { font: 15px sans-serif; fill: #17201d; }
+      .small { font: 12px sans-serif; fill: #3e514b; }
+      .note { font: 13px sans-serif; fill: #596a64; }
+    </style>
+  </defs>
+  <rect class="bg" x="0" y="0" width="980" height="620"/>
+  <text class="label" x="36" y="38">S1 reference module family</text>
+  <text class="note" x="36" y="60">All modules share the same 240 x 64 mm footprint and four-point interface.</text>
+
+  <g transform="translate(60 100)">
+    <text class="label" x="0" y="-18">Commuter pod</text>
+    <rect class="footprint" x="0" y="0" width="260" height="82" rx="8"/>
+    <path class="pod" d="M18,70 L18,28 L46,8 L214,8 L242,28 L242,70 Z"/>
+    <rect class="glass" x="60" y="18" width="132" height="24" rx="10"/>
+    <line class="service" x1="88" y1="18" x2="88" y2="42"/>
+    <line class="service" x1="130" y1="18" x2="130" y2="42"/>
+    <line class="service" x1="172" y1="18" x2="172" y2="42"/>
+    <text class="small" x="58" y="105">spacious low sill, passenger windows, centered CG marker</text>
+  </g>
+
+  <g transform="translate(370 100)">
+    <text class="label" x="0" y="-18">Overnight pod</text>
+    <rect class="footprint" x="0" y="0" width="260" height="82" rx="8"/>
+    <path class="pod" d="M18,72 L18,22 L42,8 L218,8 L242,22 L242,72 Z"/>
+    <rect class="glass" x="46" y="18" width="60" height="18" rx="8"/>
+    <rect class="glass" x="154" y="18" width="60" height="18" rx="8"/>
+    <rect class="service" x="116" y="46" width="30" height="18" rx="4"/>
+    <text class="small" x="42" y="105">lower acceleration and jerk preference</text>
+  </g>
+
+  <g transform="translate(680 100)">
+    <text class="label" x="0" y="-18">Battery pod</text>
+    <rect class="footprint" x="0" y="0" width="260" height="82" rx="8"/>
+    <path class="battery" d="M18,70 L18,24 L44,10 L216,10 L242,24 L242,70 Z"/>
+    <rect class="service" x="54" y="22" width="152" height="14" rx="3"/>
+    <rect class="service" x="54" y="46" width="152" height="12" rx="3"/>
+    <text class="small" x="50" y="105">low central mass and service/thermal panels</text>
+  </g>
+
+  <g transform="translate(60 310)">
+    <text class="label" x="0" y="-18">40-foot-equivalent adapter</text>
+    <rect class="footprint" x="0" y="0" width="260" height="82" rx="8"/>
+    <rect class="cargo" x="24" y="16" width="212" height="48" rx="4"/>
+    <line class="service" x1="62" y1="16" x2="62" y2="64"/>
+    <line class="service" x1="104" y1="16" x2="104" y2="64"/>
+    <line class="service" x1="146" y1="16" x2="146" y2="64"/>
+    <line class="service" x1="188" y1="16" x2="188" y2="64"/>
+    <text class="small" x="42" y="105">utilitarian retention rails on standard interface</text>
+  </g>
+
+  <g transform="translate(370 310)">
+    <text class="label" x="0" y="-18">Twin 20-foot-equivalent adapter</text>
+    <rect class="footprint" x="0" y="0" width="260" height="82" rx="8"/>
+    <rect class="cargo" x="24" y="16" width="96" height="48" rx="4"/>
+    <rect class="cargo" x="140" y="16" width="96" height="48" rx="4"/>
+    <text class="small" x="38" y="105">asymmetric loading requires route-admission check</text>
+  </g>
+
+  <g transform="translate(680 310)">
+    <text class="label" x="0" y="-18">Open bin</text>
+    <rect class="footprint" x="0" y="0" width="260" height="82" rx="8"/>
+    <path class="bin" d="M28,66 L42,20 L218,20 L232,66 Z"/>
+    <rect class="ballast" x="72" y="38" width="42" height="18" rx="3"/>
+    <rect class="ballast" x="146" y="34" width="42" height="22" rx="3"/>
+    <text class="small" x="48" y="105">removable weights simulate partial shifting loads</text>
+  </g>
+
+  <g transform="translate(60 515)">
+    <text class="label" x="0" y="-18">Ballast / CG test module</text>
+    <rect class="footprint" x="0" y="-48" width="260" height="82" rx="8"/>
+    <rect class="ballast" x="28" y="-34" width="54" height="22" rx="4"/>
+    <rect class="ballast" x="178" y="-34" width="54" height="22" rx="4"/>
+    <rect class="ballast" x="28" y="0" width="54" height="22" rx="4"/>
+    <rect class="ballast" x="178" y="0" width="54" height="22" rx="4"/>
+    <rect class="ballast" x="100" y="-12" width="60" height="18" rx="4"/>
+    <line x1="130" y1="-62" x2="130" y2="-48" stroke="#b03a2e" stroke-width="2"/>
+    <text class="small" x="310" y="-8">moves ballast through X/Y/Z cases for measurement fixture tests</text>
+  </g>
+</svg>
+

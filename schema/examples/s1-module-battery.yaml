@@ -1,0 +1,52 @@
+schema_version: atos.s1.module.v0
+kind: MissionModule
+metadata:
+  id: module-s1-battery-prototype
+  display_name: S1 battery support pod
+  status: provisional_prototype
+interface:
+  class: S1
+  footprint_mm: { length: 240, width: 64 }
+  required_attachment_stations: [front_left, front_right, rear_left, rear_right]
+mass_properties:
+  tare_mass_kg: 0.95
+  max_payload_mass_kg: 0.35
+  max_total_module_mass_kg: 1.3
+  declared_cg_mm:
+    x: 0
+    y: 0
+    z_above_deck: 28
+  uncertainty:
+    mass_kg: 0.04
+    x_mm: 2
+    y_mm: 1
+    z_mm: 4
+payload:
+  type: energy_storage
+  nominal_energy_wh: 120
+  shift_risk: low
+envelope:
+  class: S1-E240
+  static_bbox_mm: { length: 240, width: 64, height_above_deck: 44 }
+  minimum_curve_radius_mm: 650
+  dynamic_clearance_allowance_mm: 5
+limits:
+  max_lateral_acceleration_mps2: 0.3
+  max_longitudinal_acceleration_mps2: 0.4
+  max_braking_deceleration_mps2: 0.8
+power:
+  normal_watts: -20
+  peak_watts: -50
+  thermal_class: battery_service_required
+  route_admission_requires:
+    - isolation_state_known
+    - thermal_state_nominal
+    - service_panel_closed
+route_compatibility:
+  allowed_service_modes: [normal, instrumented_test]
+  forbidden_conditions:
+    - attachment_not_seated
+    - uncertain_mass_or_cg
+    - thermal_state_unknown
+    - battery_isolation_fault
+

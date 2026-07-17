@@ -12,6 +12,7 @@ This directory records the architectural decisions for ATOS.
 - [0006: Deficiency Gates](0006-deficiency-gates.md)
 - [0007: Energy Logistics](0007-energy-logistics.md)
 - [0008: Generalized Physical World Contract](0008-generalized-physical-world-contract.md)
+- [0009: Modular Sled and Mission Modules](0009-modular-sled-and-mission-modules.md)
 
 ## Supporting architecture
 

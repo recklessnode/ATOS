@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="420" viewBox="0 0 640 420" role="img">
+  <title>Split alignment keys STL-derived preview</title>
+  <rect width='640' height='420' fill='#f6f8f7'/>
+  <text x='28' y='34' font-family='Arial, sans-serif' font-size='20' font-weight='700' fill='#1e2b27'>Split alignment keys</text>
+  <text x='28' y='58' font-family='Arial, sans-serif' font-size='12' fill='#536862'>split_alignment_keys.stl</text>
+  <text x='28' y='76' font-family='Arial, sans-serif' font-size='12' fill='#536862'>bbox 44.00 x 23.60 x 4.60 mm</text>
+  <g aria-label='isometric projection'>
+    <rect x='28.0' y='90.0' width='260.0' height='116.0' rx='8' fill='#ffffff' stroke='#c7d4ce'/>
+    <text x='40.0' y='106.0' font-family='Arial, sans-serif' font-size='11' font-weight='700' fill='#38524b'>isometric</text>
+    <polygon points='73.4,168.3 73.4,168.7 73.7,169.0 74.1,169.3 74.6,169.6 115.5,186.1 128.8,191.5 129.5,191.7 130.3,191.9 131.1,192.0 131.9,192.0 132.8,192.0 133.6,191.9 134.3,191.7 135.0,191.5 241.4,148.5 241.9,148.2 242.3,147.9 242.6,147.6 242.6,147.2 242.6,133.7 242.6,133.3 242.3,133.0 241.9,132.7 241.4,132.4 200.5,115.9 187.2,110.5 186.5,110.3 185.7,110.1 184.9,110.0 184.1,110.0 183.2,110.0 182.4,110.1 181.7,110.3 181.0,110.5 74.6,153.5 74.1,153.8 73.7,154.1 73.4,154.4 73.4,154.8' fill='#dbe8e3' stroke='#163d35' stroke-width='2'/>
+  </g>
+  <g aria-label='top projection'>
+    <rect x='320.0' y='90.0' width='260.0' height='116.0' rx='8' fill='#ffffff' stroke='#c7d4ce'/>
+    <text x='332.0' y='106.0' font-family='Arial, sans-serif' font-size='11' font-weight='700' fill='#38524b'>top</text>
+    <polygon points='373.6,187.8 373.6,188.6 373.9,189.4 374.3,190.1 374.8,190.8 375.4,191.3 376.1,191.7 376.9,191.9 377.7,192.0 522.3,192.0 523.1,191.9 523.9,191.7 524.6,191.3 525.2,190.8 525.7,190.1 526.1,189.4 526.4,188.6 526.4,187.8 526.4,114.2 526.4,113.4 526.1,112.6 525.7,111.9 525.2,111.2 524.6,110.7 523.9,110.3 523.1,110.1 522.3,110.0 377.7,110.0 376.9,110.1 376.1,110.3 375.4,110.7 374.8,111.2 374.3,111.9 373.9,112.6 373.6,113.4 373.6,114.2' fill='#dbe8e3' stroke='#163d35' stroke-width='2'/>
+  </g>
+  <g aria-label='side projection'>
+    <rect x='28.0' y='235.0' width='260.0' height='116.0' rx='8' fill='#ffffff' stroke='#c7d4ce'/>
+    <text x='40.0' y='251.0' font-family='Arial, sans-serif' font-size='11' font-weight='700' fill='#38524b'>side</text>
+    <polygon points='40.0,308.3 276.0,308.3 276.0,283.7 40.0,283.7' fill='#dbe8e3' stroke='#163d35' stroke-width='2'/>
+  </g>
+  <g aria-label='front projection'>
+    <rect x='320.0' y='235.0' width='260.0' height='116.0' rx='8' fill='#ffffff' stroke='#c7d4ce'/>
+    <text x='332.0' y='251.0' font-family='Arial, sans-serif' font-size='11' font-weight='700' fill='#38524b'>front</text>
+    <polygon points='332.0,319.0 568.0,319.0 568.0,273.0 332.0,273.0' fill='#dbe8e3' stroke='#163d35' stroke-width='2'/>
+  </g>
+</svg>
