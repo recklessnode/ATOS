@@ -133,6 +133,11 @@ function applySimulationEvent(
   state: SimulationRuntimeState,
   event: SimulationEvent,
 ): SimulationRuntimeState {
+  const guarded = guardTerminalMissionEvent(state, event);
+  if (guarded.blocked) {
+    return guarded.state;
+  }
+
   switch (event.type) {
     case "mission_accepted":
       return handleMissionAccepted(state, event);
@@ -861,7 +866,12 @@ function handleMissionCompleted(
   if (!event.missionId) {
     return state;
   }
-  let next = releaseMissionReservations(setMissionState(state, event, "completed"), event.missionId, event.timestamp);
+  let next = releaseMissionRuntimeResources(
+    setMissionState(state, event, "completed"),
+    event.missionId,
+    event.timestamp,
+    { releaseReservations: true },
+  );
   next = updateMission(next, event.missionId, (mission) => ({ ...mission, completedAt: event.timestamp }));
   return updateAssets(next, findMission(next, event.missionId)?.plan.assetIds ?? [], (asset) => ({
     ...asset,
@@ -877,7 +887,12 @@ function handleMissionFailed(
   if (!event.missionId) {
     return state;
   }
-  const failed = releaseMissionReservations(setMissionState(state, event, "failed"), event.missionId, event.timestamp);
+  const failed = releaseMissionRuntimeResources(
+    setMissionState(state, event, "failed"),
+    event.missionId,
+    event.timestamp,
+    { releaseReservations: true },
+  );
   return updateMission(failed, event.missionId, (mission) => ({
     ...mission,
     completedAt: event.timestamp,
@@ -895,14 +910,18 @@ function handleFaultRaised(
   }
   let next = raiseFault(state, fault, event.id);
   const affectedMission = next.missions.find((mission) =>
-    mission.plan.assetIds.includes(fault.targetId) ||
-    mission.plan.route.linkIds.includes(fault.targetId) ||
-    mission.plan.reservationIds.includes(fault.targetId)
+    !isTerminalMission(mission) &&
+    (
+      mission.plan.assetIds.includes(fault.targetId) ||
+      mission.plan.route.linkIds.includes(fault.targetId) ||
+      mission.plan.reservationIds.includes(fault.targetId)
+    )
   );
   if (!affectedMission) {
     return next;
   }
   if (fault.behavior === "fail") {
+    next = setMissionStateForMission(next, event, affectedMission.plan.id, "failed");
     next = scheduleEvent(next, {
       timestamp: event.timestamp,
       type: "mission_failed",
@@ -916,6 +935,7 @@ function handleFaultRaised(
     });
   }
   if (fault.behavior === "request_replanning") {
+    next = setMissionStateForMission(next, event, affectedMission.plan.id, "blocked");
     next = scheduleEvent(next, {
       timestamp: event.timestamp,
       type: "replanning_requested",
@@ -1364,11 +1384,20 @@ function setMissionState(
   event: SimulationEvent,
   lifecycleState: RuntimeMission["state"],
 ): SimulationRuntimeState {
-  if (!event.missionId) {
+  return setMissionStateForMission(state, event, event.missionId, lifecycleState);
+}
+
+function setMissionStateForMission(
+  state: SimulationRuntimeState,
+  event: SimulationEvent,
+  missionId: string | undefined,
+  lifecycleState: RuntimeMission["state"],
+): SimulationRuntimeState {
+  if (!missionId) {
     return state;
   }
   let rejected: { from: RuntimeMission["state"]; to: RuntimeMission["state"] } | undefined;
-  const updated = updateMission(state, event.missionId, (mission) => {
+  const updated = updateMission(state, missionId, (mission) => {
     const transition = transitionMissionLifecycleState(mission, lifecycleState, event.id);
     if (!transition.accepted) {
       rejected = { from: transition.from, to: transition.to };
@@ -1401,6 +1430,104 @@ function annotateRejectedLifecycleTransition(
         : appliedEvent
     ),
   };
+}
+
+function guardTerminalMissionEvent(
+  state: SimulationRuntimeState,
+  event: SimulationEvent,
+): { blocked: false; state: SimulationRuntimeState } | { blocked: true; state: SimulationRuntimeState } {
+  const mission = findMission(state, event.missionId);
+  if (!mission || !isTerminalMission(mission)) {
+    return { blocked: false, state };
+  }
+  if (canApplyToTerminalMission(mission, event)) {
+    return { blocked: false, state };
+  }
+  return {
+    blocked: true,
+    state: annotateSkippedEvent(
+      state,
+      event,
+      `Mission ${mission.plan.id} is ${mission.state}; ${event.type} cannot change terminal mission state.`,
+    ),
+  };
+}
+
+function canApplyToTerminalMission(
+  mission: RuntimeMission,
+  event: SimulationEvent,
+): boolean {
+  if (event.type === "replanning_requested" && mission.state === "blocked") {
+    return true;
+  }
+  if (
+    mission.state === "blocked" &&
+    (event.type === "route_blocked" ||
+      event.type === "power_gate_failed" ||
+      event.type === "battery_reserve_violated")
+  ) {
+    return true;
+  }
+  if (event.type === "mission_failed" && mission.state !== "completed" && mission.state !== "cancelled") {
+    return true;
+  }
+  return false;
+}
+
+function annotateSkippedEvent(
+  state: SimulationRuntimeState,
+  event: SimulationEvent,
+  reason: string,
+): SimulationRuntimeState {
+  return {
+    ...state,
+    eventHistory: state.eventHistory.map((appliedEvent) =>
+      appliedEvent.id === event.id
+        ? {
+            ...appliedEvent,
+            status: "skipped",
+            severity: "warning",
+            payload: {
+              ...appliedEvent.payload,
+              reason,
+            },
+          }
+        : appliedEvent
+    ),
+  };
+}
+
+function releaseMissionRuntimeResources(
+  state: SimulationRuntimeState,
+  missionId: string,
+  timestamp: string,
+  options: { releaseReservations: boolean },
+): SimulationRuntimeState {
+  const mission = findMission(state, missionId);
+  const activeResourceIds = uniqueSorted([
+    ...state.guidewayOccupancy
+      .filter((occupancy) => occupancy.missionId === missionId)
+      .map((occupancy) => `guideway-link:${occupancy.linkId}`),
+    ...state.serviceOccupancy
+      .filter((occupancy) => occupancy.missionId === missionId)
+      .map((occupancy) => occupancy.resourceId),
+  ]);
+  let next = options.releaseReservations
+    ? releaseMissionReservations(state, missionId, timestamp)
+    : deactivateMissionResourceReservations(state, missionId, activeResourceIds, timestamp);
+  next = {
+    ...next,
+    guidewayOccupancy: next.guidewayOccupancy.filter((occupancy) => occupancy.missionId !== missionId),
+    serviceOccupancy: next.serviceOccupancy.filter((occupancy) => occupancy.missionId !== missionId),
+  };
+  next = dissolveMissionConsist(next, missionId, timestamp);
+  return mission
+    ? updateAssets(next, mission.plan.assetIds, (asset) => ({
+        ...asset,
+        activeMissionId: undefined,
+        consistId: undefined,
+      }))
+    : next;
 }
 
 function markReservationConflict(

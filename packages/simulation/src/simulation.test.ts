@@ -15,9 +15,11 @@ import {
   replaySimulation,
   resumeSimulation,
   runSimulationToCompletion,
+  scheduleEvent,
   serializeEventLog,
   setSimulationPlaybackSpeed,
   stepSimulationToNextEvent,
+  type SimulationFault,
   type SimulationEventType,
   type SimulationInput,
   type SimulationRuntimeState,
@@ -496,6 +498,197 @@ describe("ATOS simulation engine", () => {
     expect(result.replanningRequests[0]?.assetStates.length).toBeGreaterThan(0);
   });
 
+  it("blocks immediately on same-time replanning faults before queued formation work can run", () => {
+    let state = initializeSimulation(createSimulationFixture("simple-passenger"));
+    state = stepUntilEvent(state, "formation_started");
+    const mission = state.missions[0];
+    const assetId = mission?.plan.assetIds[0];
+    if (!mission || !assetId) {
+      throw new Error("fixture missing mission asset");
+    }
+
+    state = injectFault(state, {
+      id: "fault:formation:same-time-replan",
+      type: "vehicle_unavailable",
+      targetId: assetId,
+      startsAt: state.clock.currentTime,
+      behavior: "request_replanning",
+      severity: "warning",
+      message: "Formation asset unavailable at the same timestamp as queued join work.",
+    });
+
+    state = stepSimulationToNextEvent(state);
+    expect(state.eventHistory.at(-1)?.type).toBe("fault_raised");
+    expect(state.missions[0]?.state).toBe("blocked");
+
+    state = stepSimulationToNextEvent(state);
+    expect(state.eventHistory.at(-1)).toMatchObject({
+      type: "consist_join_started",
+      status: "skipped",
+    });
+
+    state = stepUntilEvent(state, "replanning_requested");
+    expect(state.replanningRequests).toHaveLength(1);
+  });
+
+  it("skips queued mission events without side effects after formation, loading, movement, and charging faults", () => {
+    const cases: Array<{
+      label: string;
+      fixture: Parameters<typeof createSimulationFixture>[0];
+      triggerEvent: SimulationEventType;
+      blockedEvent: SimulationEventType;
+      sideEffectSnapshot: (state: SimulationRuntimeState) => unknown;
+    }> = [
+      {
+        label: "formation",
+        fixture: "simple-passenger",
+        triggerEvent: "formation_started",
+        blockedEvent: "consist_join_started",
+        sideEffectSnapshot: (state) => state.consists.map((consist) => consist.status),
+      },
+      {
+        label: "loading",
+        fixture: "simple-passenger",
+        triggerEvent: "loading_started",
+        blockedEvent: "loading_completed",
+        sideEffectSnapshot: (state) => state.missions.map((mission) => mission.chitProgress),
+      },
+      {
+        label: "movement",
+        fixture: "consist-formation-split",
+        triggerEvent: "guideway_segment_entered",
+        blockedEvent: "guideway_segment_exited",
+        sideEffectSnapshot: (state) => state.missions.map((mission) => mission.energyConsumedWh),
+      },
+      {
+        label: "charging",
+        fixture: "battery-support",
+        triggerEvent: "charging_started",
+        blockedEvent: "charging_completed",
+        sideEffectSnapshot: (state) => state.assets.map((asset) => asset.battery?.stateOfChargeWh ?? null),
+      },
+    ];
+
+    for (const testCase of cases) {
+      let state = initializeSimulation(createSimulationFixture(testCase.fixture));
+      state = stepUntilEvent(state, testCase.triggerEvent);
+      const mission = state.missions[0];
+      const assetId = mission?.plan.assetIds[0];
+      if (!mission || !assetId) {
+        throw new Error(`fixture missing mission asset for ${testCase.label}`);
+      }
+      state = injectFault(state, {
+        id: `fault:${testCase.label}:replan`,
+        type: "vehicle_unavailable",
+        targetId: assetId,
+        startsAt: state.clock.currentTime,
+        behavior: "request_replanning",
+        severity: "warning",
+        message: `${testCase.label} fixture fault requests replanning.`,
+      });
+      state = stepSimulationToNextEvent(state);
+      expect(state.eventHistory.at(-1)?.type).toBe("fault_raised");
+      expect(state.missions[0]?.state).toBe("blocked");
+
+      const beforeBlockedEvent = JSON.stringify(testCase.sideEffectSnapshot(state));
+      state = stepUntilEvent(state, testCase.blockedEvent);
+      expect(state.eventHistory.at(-1)).toMatchObject({
+        type: testCase.blockedEvent,
+        status: "skipped",
+      });
+      expect(JSON.stringify(testCase.sideEffectSnapshot(state))).toBe(beforeBlockedEvent);
+    }
+  });
+
+  it("releases runtime resources, reservations, consists, and asset assignments when a mission fails", () => {
+    let state = initializeSimulation(createSimulationFixture("simple-passenger"));
+    state = stepUntilEvent(state, "loading_started");
+    const mission = state.missions[0];
+    const assetId = mission?.plan.assetIds[0];
+    const linkId = mission?.plan.route.linkIds[0] ?? "fixture-link";
+    if (!mission || !assetId) {
+      throw new Error("fixture missing mission asset");
+    }
+    state = {
+      ...state,
+      guidewayOccupancy: [{
+        id: "occupancy:fixture:failure-cleanup",
+        linkId,
+        missionId: mission.plan.id,
+        enteredAt: state.clock.currentTime,
+        exitAt: advanceIsoTime(state.clock.currentTime, 600),
+        assetIds: [...mission.plan.assetIds],
+      }],
+    };
+
+    const failed = runSimulationToCompletion(injectFault(state, {
+      id: "fault:mission:fail-cleanup",
+      type: "vehicle_unavailable",
+      targetId: assetId,
+      startsAt: state.clock.currentTime,
+      behavior: "fail",
+      severity: "error",
+      message: "Failure cleanup fixture fault.",
+    }));
+
+    expect(failed.missions[0]?.state).toBe("failed");
+    expect(failed.guidewayOccupancy.filter((occupancy) => occupancy.missionId === mission.plan.id)).toHaveLength(0);
+    expect(failed.serviceOccupancy.filter((occupancy) => occupancy.missionId === mission.plan.id)).toHaveLength(0);
+    expect(failed.reservations.filter((reservation) =>
+      reservation.reservation.missionPlanId === mission.plan.id
+    ).every((reservation) => reservation.status === "released")).toBe(true);
+    expect(failed.consists.find((consist) => consist.missionId === mission.plan.id)?.status).toBe("dissolved");
+    expect(failed.assets.filter((asset) => mission.plan.assetIds.includes(asset.assetId)).every((asset) =>
+      !asset.activeMissionId && !asset.consistId
+    )).toBe(true);
+    expect(failed.missions[0]?.chitProgress.every((progress) => progress.status === "failed")).toBe(true);
+  });
+
+  it("ignores later operational events for completed missions", () => {
+    const completed = runSimulationToCompletion(createSimulationFixture("simple-passenger"));
+    const mission = completed.missions[0];
+    if (!mission) {
+      throw new Error("fixture missing mission");
+    }
+    const before = JSON.stringify({
+      assets: completed.assets,
+      reservations: completed.reservations,
+      mission: {
+        state: mission.state,
+        energyConsumedWh: mission.energyConsumedWh,
+        chitProgress: mission.chitProgress,
+      },
+      guidewayOccupancy: completed.guidewayOccupancy,
+      serviceOccupancy: completed.serviceOccupancy,
+    });
+
+    const stepped = stepSimulationToNextEvent(scheduleEvent(completed, {
+      timestamp: advanceIsoTime(completed.clock.currentTime, 60),
+      type: "loading_started",
+      missionId: mission.plan.id,
+      transientWorkerId: mission.plan.superWorkerId,
+      affectedAssetIds: mission.plan.assetIds,
+      affectedResourceIds: mission.plan.reservationIds,
+      payload: { injectedAfterCompletion: true },
+    }));
+
+    expect(stepped.eventHistory.at(-1)).toMatchObject({
+      type: "loading_started",
+      status: "skipped",
+    });
+    expect(JSON.stringify({
+      assets: stepped.assets,
+      reservations: stepped.reservations,
+      mission: {
+        state: stepped.missions[0]?.state,
+        energyConsumedWh: stepped.missions[0]?.energyConsumedWh,
+        chitProgress: stepped.missions[0]?.chitProgress,
+      },
+      guidewayOccupancy: stepped.guidewayOccupancy,
+      serviceOccupancy: stepped.serviceOccupancy,
+    })).toBe(before);
+  });
+
   it("runs concurrent non-conflicting fixture missions without reservation conflicts", () => {
     const result = runSimulationToCompletion(createSimulationFixture("concurrent-non-conflicting"));
 
@@ -509,9 +702,9 @@ describe("ATOS simulation engine", () => {
 
     expect(result.eventHistory.map((event) => event.type)).toEqual(expect.arrayContaining([
       "fault_raised",
-      "route_blocked",
       "replanning_requested",
     ]));
+    expect(result.eventHistory.find((event) => event.type === "mission_accepted")?.status).toBe("skipped");
     expect(result.dispatchResult.missionPlans.length).toBe(1);
     expect(result.replanningRequests[0]?.retainedReservationIds.length).toBeGreaterThan(0);
   });
@@ -594,6 +787,25 @@ function updateReservations(
       ),
     },
   };
+}
+
+function injectFault(
+  state: SimulationRuntimeState,
+  fault: SimulationFault,
+): SimulationRuntimeState {
+  return scheduleEvent({
+    ...state,
+    faultSchedule: [
+      ...state.faultSchedule.filter((candidate) => candidate.id !== fault.id),
+      fault,
+    ].sort((left, right) => left.id.localeCompare(right.id)),
+  }, {
+    timestamp: fault.startsAt,
+    type: "fault_raised",
+    affectedResourceIds: [fault.targetId],
+    payload: { faultId: fault.id, targetId: fault.targetId, faultType: fault.type },
+    severity: fault.severity,
+  });
 }
 
 function sourceFiles(path: string): string[] {
