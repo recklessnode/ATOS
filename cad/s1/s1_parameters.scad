@@ -18,7 +18,6 @@ s1_full_module_length_mm = 15678;
 s1_full_module_width_mm = 3484;
 s1_full_mount_x_mm = 6097;
 s1_full_mount_y_mm = 1350.05;
-s1_full_coupler_pivot_spacing_mm = 24213.8;
 s1_full_coupler_drawbar_length_mm = 1742;
 s1_full_ballast_pocket_length_mm = 2090.4;
 s1_full_ballast_pocket_width_mm = 871;
@@ -37,6 +36,10 @@ s1_full_open_bin_height_mm = 2787.2;
 s1_full_ballast_module_height_mm = 4006.6;
 
 function s1_model_mm(full_size_mm) = full_size_mm / s1_scale_ratio;
+function s1_scaled_feature(value) = value * s1_module_length / 180;
+function s1_scaled_feature_size(value, minimum = s1_min_feature) = max(value * s1_module_length / 180, minimum);
+function s1_scaled_pod_z(value, selected_height, baseline_height) = s1_module_interface_height + (value - s1_module_interface_height) * selected_height / baseline_height;
+function s1_scaled_pod_size(value, selected_height, baseline_height, minimum = s1_min_feature) = max(value * selected_height / baseline_height, minimum);
 
 s1_length_over_coupler_faces = s1_model_mm(s1_full_length_over_coupler_faces_mm);
 s1_sled_body_length = s1_model_mm(s1_full_sled_body_length_mm);
@@ -62,8 +65,10 @@ s1_mount_clearance = 0.35;
 s1_latch_slot_length = 12;
 s1_latch_slot_width = 3.8;
 
-s1_coupler_pivot_spacing = s1_model_mm(s1_full_coupler_pivot_spacing_mm);
 s1_coupler_drawbar_length = s1_model_mm(s1_full_coupler_drawbar_length_mm);
+s1_coupler_front_face_offset = s1_coupler_drawbar_length + 14.5;
+s1_coupler_rear_face_offset = s1_coupler_drawbar_length + 13;
+s1_coupler_pivot_spacing = s1_length_over_coupler_faces - s1_coupler_front_face_offset - s1_coupler_rear_face_offset;
 s1_coupler_pivot_diameter = 5.5;
 s1_coupler_yaw_normal_deg = 15;
 s1_coupler_yaw_hard_stop_deg = 18;
@@ -86,9 +91,10 @@ s1_support_node_y = s1_model_mm(s1_full_support_node_y_mm);
 
 s1_bed_x = 220;
 s1_bed_y = 220;
-s1_h2c_bed_x = 320;
-s1_h2c_bed_y = 320;
-s1_h2c_margin = 5;
+s1_h2c_single_nozzle_bed_x = 305;
+s1_h2c_single_nozzle_bed_y = 320;
+s1_h2c_dual_nozzle_bed_x = 300;
+s1_h2c_dual_nozzle_bed_y = 320;
 
 s1_iso_container_width = s1_model_mm(2438);
 s1_iso_container_height = s1_model_mm(2591);

@@ -4,8 +4,8 @@ build_part = "full";
 
 module service_vents(y) {
   for (x = [-56, -34, -12, 12, 34, 56])
-    translate([x, y, 21])
-      rounded_box([10, 1.2, 7], 1.0);
+    translate([s1_scaled_feature(x), y, s1_scaled_pod_z(21, s1_battery_pod_height, 32)])
+      rounded_box([s1_scaled_feature_size(10), 1.2, s1_scaled_pod_size(7, s1_battery_pod_height, 32)], 1.0);
 }
 
 module battery_pod_full() {
@@ -15,8 +15,8 @@ module battery_pod_full() {
     }
     translate([0, 0, s1_module_interface_height - 0.3])
       aerodynamic_pod_shell(s1_module_length, s1_module_width, s1_battery_pod_height, nose = 18, roof_inset = 7, radius = 4);
-    translate([0, 0, 12])
-      rounded_box([128, s1_module_width - 10, 6], 3);
+    translate([0, 0, s1_scaled_pod_z(12, s1_battery_pod_height, 32)])
+      rounded_box([s1_scaled_feature_size(128), s1_module_width - 10, s1_scaled_pod_size(6, s1_battery_pod_height, 32)], 3);
     service_vents(s1_module_width / 2 - 5.2);
     service_vents(-s1_module_width / 2 + 5.2);
     cg_marker(s1_module_interface_height + s1_battery_pod_height + 0.2, 11);

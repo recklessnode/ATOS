@@ -106,6 +106,19 @@
     },
     {
       "bbox_mm": [
+        580.666,
+        87.1,
+        25.1458
+      ],
+      "h2c_fit": false,
+      "notes": "Assembled sled and coupler reference used to measure the over-coupler-face length; not a print-project plate asset.",
+      "output": "s1_coupler_face_length_reference.stl",
+      "primary_bed_fit": false,
+      "target": "Coupler face length reference",
+      "watertight": true
+    },
+    {
+      "bbox_mm": [
         353.366,
         108.4376,
         16.0
@@ -431,6 +444,7 @@
     }
   ],
   "dimensions_mm": {
+    "derived_coupler_pivot_spacing": 480.5833333333333,
     "iso_20ft_container_length": 126.20833333333333,
     "iso_40ft_container_length": 254.0,
     "iso_container_width": 50.791666666666664,
@@ -441,6 +455,11 @@
     "sled_body_width": 76.21249999999999,
     "stabilization_envelope_width": 87.09999999999998
   },
+  "h2c_nozzle_mode": "dual",
+  "h2c_usable_bed_mm": [
+    300.0,
+    320.0
+  ],
   "manufacturing_parameters_model_mm": {
     "container_fit_clearance_length": 1.5,
     "container_fit_clearance_width": 1.2,

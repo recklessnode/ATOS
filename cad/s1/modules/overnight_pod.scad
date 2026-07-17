@@ -10,15 +10,15 @@ module overnight_pod_full() {
     translate([0, 0, s1_module_interface_height - 0.3])
       aerodynamic_pod_shell(s1_module_length, s1_module_width, s1_overnight_pod_height, nose = 18, roof_inset = 7, radius = 4);
     for (x = [-52, 52])
-      translate([x, s1_module_width / 2 - 5.2, 25])
-        rounded_box([36, 1.3, 10], 1.4);
+      translate([s1_scaled_feature(x), s1_module_width / 2 - 5.2, s1_scaled_pod_z(25, s1_overnight_pod_height, 40)])
+        rounded_box([s1_scaled_feature_size(36), 1.3, s1_scaled_pod_size(10, s1_overnight_pod_height, 40)], 1.4);
     for (x = [-52, 52])
-      translate([x, -s1_module_width / 2 + 5.2, 25])
-        rounded_box([36, 1.3, 10], 1.4);
-    translate([0, s1_module_width / 2 - 5.2, 17])
-      rounded_box([24, 1.3, 12], 1.4);
-    translate([0, -s1_module_width / 2 + 5.2, 17])
-      rounded_box([24, 1.3, 12], 1.4);
+      translate([s1_scaled_feature(x), -s1_module_width / 2 + 5.2, s1_scaled_pod_z(25, s1_overnight_pod_height, 40)])
+        rounded_box([s1_scaled_feature_size(36), 1.3, s1_scaled_pod_size(10, s1_overnight_pod_height, 40)], 1.4);
+    translate([0, s1_module_width / 2 - 5.2, s1_scaled_pod_z(17, s1_overnight_pod_height, 40)])
+      rounded_box([s1_scaled_feature_size(24), 1.3, s1_scaled_pod_size(12, s1_overnight_pod_height, 40)], 1.4);
+    translate([0, -s1_module_width / 2 + 5.2, s1_scaled_pod_z(17, s1_overnight_pod_height, 40)])
+      rounded_box([s1_scaled_feature_size(24), 1.3, s1_scaled_pod_size(12, s1_overnight_pod_height, 40)], 1.4);
     cg_marker(s1_module_interface_height + s1_overnight_pod_height + 0.2, 11);
   }
 }
