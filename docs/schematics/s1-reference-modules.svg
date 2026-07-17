@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="1000" viewBox="0 0 1400 1000">
+  <style>
+    text { font-family: Arial, sans-serif; fill: #111; }
+    .title { font-size: 28px; font-weight: 700; }
+    .sub { font-size: 15px; }
+    .head { font-size: 18px; font-weight: 700; }
+    .small { font-size: 13px; }
+    .body { fill: #f4f4f4; stroke: #111; stroke-width: 2; }
+    .deck { fill: #ddd; stroke: #111; stroke-width: 2; }
+    .detail { fill: #fff; stroke: #333; stroke-width: 1.2; }
+    .dash { fill: none; stroke: #555; stroke-width: 1.2; stroke-dasharray: 6 5; }
+    .line { fill: none; stroke: #333; stroke-width: 1.2; }
+  </style>
+
+  <text x="45" y="45" class="title">ATOS S1 Reference Mission Modules — Concept Schematics</text>
+  <text x="45" y="70" class="sub">All modules share the 240 × 64 mm provisional footprint and four-point attachment interface.</text>
+
+  <!-- commuter -->
+  <text x="55" y="115" class="head">A. COMMUTER PASSENGER POD</text>
+  <rect x="55" y="140" width="560" height="180" rx="18" class="body"/>
+  <rect x="55" y="300" width="560" height="24" class="deck"/>
+  <rect x="150" y="175" width="75" height="125" class="detail"/>
+  <rect x="445" y="175" width="75" height="125" class="detail"/>
+  <text x="163" y="240" class="small">wide door</text>
+  <text x="458" y="240" class="small">wide door</text>
+  <g class="detail">
+    <rect x="245" y="175" width="32" height="45"/><rect x="290" y="175" width="32" height="45"/><rect x="335" y="175" width="32" height="45"/><rect x="380" y="175" width="32" height="45"/>
+    <rect x="245" y="245" width="32" height="45"/><rect x="290" y="245" width="32" height="45"/><rect x="335" y="245" width="32" height="45"/><rect x="380" y="245" width="32" height="45"/>
+  </g>
+  <text x="75" y="345" class="small">Example capacity: 24 people • rapid boarding • interior light/audio zones</text>
+
+  <!-- overnight -->
+  <text x="750" y="115" class="head">B. OVERNIGHT PASSENGER POD</text>
+  <rect x="750" y="140" width="560" height="180" rx="18" class="body"/>
+  <rect x="750" y="300" width="560" height="24" class="deck"/>
+  <rect x="790" y="175" width="120" height="50" class="detail"/><rect x="790" y="245" width="120" height="50" class="detail"/>
+  <rect x="950" y="175" width="120" height="50" class="detail"/><rect x="950" y="245" width="120" height="50" class="detail"/>
+  <rect x="1110" y="175" width="120" height="50" class="detail"/><rect x="1110" y="245" width="120" height="50" class="detail"/>
+  <text x="795" y="205" class="small">berth pair</text><text x="955" y="205" class="small">berth pair</text><text x="1115" y="205" class="small">berth pair</text>
+  <text x="770" y="345" class="small">Example capacity: 8 people + baggage • quiet scenes • longer dwell/service</text>
+
+  <!-- battery -->
+  <text x="55" y="420" class="head">C. BATTERY / ENERGY POD</text>
+  <rect x="55" y="445" width="560" height="180" rx="12" class="body"/>
+  <rect x="55" y="605" width="560" height="24" class="deck"/>
+  <rect x="90" y="480" width="390" height="110" class="detail"/>
+  <line x1="168" y1="480" x2="168" y2="590" class="line"/><line x1="246" y1="480" x2="246" y2="590" class="line"/><line x1="324" y1="480" x2="324" y2="590" class="line"/><line x1="402" y1="480" x2="402" y2="590" class="line"/>
+  <rect x="500" y="480" width="80" height="48" class="detail"/><rect x="500" y="542" width="80" height="48" class="detail"/>
+  <text x="510" y="510" class="small">BMS</text><text x="508" y="572" class="small">thermal</text>
+  <text x="75" y="650" class="small">Energy inventory • contactors • BMS • thermal sensing • optional cooling</text>
+
+  <!-- container -->
+  <text x="750" y="420" class="head">D. INTERMODAL ADAPTERS</text>
+  <rect x="750" y="445" width="560" height="180" rx="8" class="dash"/>
+  <rect x="765" y="462" width="530" height="60" class="body"/>
+  <text x="980" y="498" class="small">one 40-foot-equivalent container</text>
+  <rect x="765" y="545" width="255" height="60" class="body"/>
+  <rect x="1040" y="545" width="255" height="60" class="body"/>
+  <text x="835" y="581" class="small">20-foot equivalent</text><text x="1110" y="581" class="small">20-foot equivalent</text>
+  <rect x="750" y="605" width="560" height="24" class="deck"/>
+  <text x="770" y="650" class="small">Containers retain independent identity, manifest, destination, and nested inventory</text>
+
+  <!-- open bin -->
+  <text x="55" y="725" class="head">E. OPEN-BIN / BULK MODULE</text>
+  <path d="M75 760 L595 760 L555 900 L115 900 Z" class="body"/>
+  <line x1="170" y1="760" x2="185" y2="900" class="line"/><line x1="280" y1="760" x2="290" y2="900" class="line"/><line x1="390" y1="760" x2="400" y2="900" class="line"/><line x1="500" y1="760" x2="505" y2="900" class="line"/>
+  <rect x="55" y="900" width="560" height="24" class="deck"/>
+  <text x="75" y="948" class="small">Ore • scrap • aggregate • grain • waste; removable liners or unload mechanisms</text>
+
+  <!-- interface control -->
+  <text x="750" y="725" class="head">COMMON MODULE INTERFACE</text>
+  <rect x="750" y="755" width="560" height="170" rx="10" class="dash"/>
+  <circle cx="790" cy="790" r="12" class="detail"/><circle cx="1270" cy="790" r="12" class="detail"/>
+  <circle cx="790" cy="890" r="12" class="detail"/><circle cx="1270" cy="890" r="12" class="detail"/>
+  <rect x="995" y="805" width="70" height="55" class="detail"/>
+  <text x="975" y="880" class="small">central service connector</text>
+  <text x="820" y="795" class="small">four keyed locating/latch stations</text>
+  <text x="820" y="918" class="small">module manifest includes mass, center of mass, envelope, power, ports, and effects</text>
+</svg>
