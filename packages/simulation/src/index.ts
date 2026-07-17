@@ -4,6 +4,7 @@ export * from "./energy-model";
 export * from "./event-queue";
 export * from "./faults";
 export * from "./fixtures";
+export * from "./lifecycle";
 export * from "./mission-executor";
 export * from "./occupancy";
 export * from "./replanning-boundary";

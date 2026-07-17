@@ -1,9 +1,14 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { act } from "react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { createSimulationFixture } from "@atos/simulation";
 import { SimulationWorkspace } from "./SimulationWorkspace";
 
 describe("SimulationWorkspace", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("renders the deterministic simulation workspace controls and panels", () => {
     render(<SimulationWorkspace inputOverride={createSimulationFixture("consist-formation-split")} />);
 
@@ -35,11 +40,49 @@ describe("SimulationWorkspace", () => {
     const timeline = screen.getByRole("region", { name: "Event timeline" });
     expect(within(timeline).getAllByText("mission_accepted").length).toBeGreaterThan(0);
 
+    const causalFilter = screen.getByLabelText("Filter events by causal chain") as HTMLSelectElement;
+    const causalValue = Array.from(causalFilter.options).find((option) => option.value)?.value ?? "";
+    expect(causalValue).not.toBe("");
+    fireEvent.change(causalFilter, { target: { value: causalValue } });
+    expect(within(timeline).getAllByRole("listitem").length).toBeGreaterThan(0);
+    fireEvent.change(causalFilter, { target: { value: "" } });
+
     fireEvent.change(screen.getByLabelText("Filter events by type"), { target: { value: "mission_accepted" } });
+    expect(within(timeline).getAllByText("mission_accepted").length).toBeGreaterThan(0);
+    fireEvent.change(screen.getByLabelText("Filter events by asset"), { target: { value: "vehicle-cargo-1" } });
+    expect(within(timeline).getAllByText("mission_accepted").length).toBeGreaterThan(0);
+    fireEvent.change(screen.getByLabelText("Filter events from time"), { target: { value: "2026-07-10T00:00:00.000Z" } });
+    fireEvent.change(screen.getByLabelText("Filter events to time"), { target: { value: "2026-07-10T00:30:00.000Z" } });
     expect(within(timeline).getAllByText("mission_accepted").length).toBeGreaterThan(0);
 
     fireEvent.click(within(screen.getByRole("region", { name: "Simulation controls" })).getByRole("button", { name: "Reset" }));
     expect(within(timeline).queryByText("mission_accepted")).not.toBeInTheDocument();
+  });
+
+  it("advances while Play is running, pauses the loop, and honors playback speed", () => {
+    vi.useFakeTimers();
+    render(<SimulationWorkspace inputOverride={createSimulationFixture("simple-passenger")} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Play" }));
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+    const timeline = screen.getByRole("region", { name: "Event timeline" });
+    expect(within(timeline).getAllByText("mission_accepted").length).toBeGreaterThan(0);
+    const countAfterPlay = within(timeline).getAllByRole("listitem").length;
+
+    fireEvent.click(screen.getByRole("button", { name: "Pause" }));
+    act(() => {
+      vi.advanceTimersByTime(2000);
+    });
+    expect(within(timeline).getAllByRole("listitem")).toHaveLength(countAfterPlay);
+
+    fireEvent.change(screen.getByLabelText("Playback speed"), { target: { value: "2" } });
+    fireEvent.click(screen.getByRole("button", { name: "Play" }));
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+    expect(within(timeline).getAllByRole("listitem").length).toBeGreaterThanOrEqual(countAfterPlay);
   });
 
   it("focuses event and occupancy targets on the scenario map by stable ID", () => {
@@ -50,6 +93,8 @@ describe("SimulationWorkspace", () => {
       fireEvent.click(step);
     }
 
+    expect(screen.getByRole("group", { name: "Live simulation occupancy overlay" })).toBeInTheDocument();
+    expect(screen.getAllByRole("img", { name: /Live (guideway|service) occupancy/ }).length).toBeGreaterThan(0);
     fireEvent.click(screen.getAllByRole("button", { name: /Focus event guideway_segment_entered/ })[0]);
 
     const details = screen.getByLabelText("Selection details");

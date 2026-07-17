@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   advanceSimulationBy,
   createDefaultSimulationInput,
@@ -17,6 +17,7 @@ import {
 import {
   ScenarioMap,
   type ScenarioMapFocusRequest,
+  type ScenarioMapLiveOverlay,
 } from "../scenario-map";
 import { buildScenarioMapRenderModel, type ScenarioMapRenderModel } from "../scenario-map/render-model";
 import { selectionKey, type ScenarioSelection } from "../scenario-map/selection";
@@ -27,20 +28,28 @@ type SimulationWorkspaceProps = {
 };
 
 type EventFilters = {
+  assetId: string;
+  causalEventId: string;
+  fromTime: string;
   missionId: string;
   eventType: string;
   severity: string;
   resourceId: string;
+  toTime: string;
 };
 
 export function SimulationWorkspace({ inputOverride }: SimulationWorkspaceProps) {
   const input = useMemo(() => inputOverride ?? createDefaultSimulationInput(), [inputOverride]);
   const [runtime, setRuntime] = useState<SimulationRuntimeState>(() => initializeSimulation(input));
   const [filters, setFilters] = useState<EventFilters>({
+    assetId: "",
+    causalEventId: "",
+    fromTime: "",
     missionId: "",
     eventType: "",
     severity: "",
     resourceId: "",
+    toTime: "",
   });
   const focusRequestId = useRef(0);
   const [focusRequest, setFocusRequest] = useState<ScenarioMapFocusRequest | undefined>();
@@ -49,18 +58,66 @@ export function SimulationWorkspace({ inputOverride }: SimulationWorkspaceProps)
     return { ...base, layers: { ...base.layers, guideway: true, stations: true, electrical: true } };
   }, [input.scenario]);
   const visibleEvents = useMemo(() => filterSimulationEvents(runtime.eventHistory, {
+    assetId: filters.assetId || undefined,
+    causalEventId: filters.causalEventId || undefined,
+    fromTime: filters.fromTime || undefined,
     missionId: filters.missionId || undefined,
     eventType: filters.eventType ? filters.eventType as SimulationEventType : undefined,
     severity: filters.severity ? filters.severity as SimulationEventSeverity : undefined,
     resourceId: filters.resourceId || undefined,
+    toTime: filters.toTime || undefined,
   }), [runtime.eventHistory, filters]);
   const eventTypes = uniqueSorted(runtime.eventHistory.map((event) => event.type));
   const missionIds = runtime.missions.map((mission) => mission.plan.id).sort();
+  const assetIds = uniqueSorted(runtime.eventHistory.flatMap((event) => event.affectedAssetIds));
+  const causalEventIds = uniqueSorted(runtime.eventHistory.map((event) => event.causalEventId ?? "").filter(Boolean));
   const resourceIds = uniqueSorted(runtime.eventHistory.flatMap((event) => event.affectedResourceIds));
+  const liveOverlay = useMemo<ScenarioMapLiveOverlay>(() => ({
+    occupancies: [
+      ...runtime.guidewayOccupancy.map((occupancy) => ({
+        id: occupancy.id,
+        kind: "guideway" as const,
+        resourceId: `guideway-link:${occupancy.linkId}`,
+        missionId: occupancy.missionId,
+        label: `${occupancy.linkId} occupied by ${occupancy.missionId}`,
+      })),
+      ...runtime.serviceOccupancy.map((occupancy) => ({
+        id: occupancy.id,
+        kind: "service" as const,
+        resourceId: occupancy.resourceId,
+        missionId: occupancy.missionId,
+        action: occupancy.action,
+        label: `${occupancy.resourceId} ${occupancy.action} by ${occupancy.missionId}`,
+      })),
+    ],
+  }), [runtime.guidewayOccupancy, runtime.serviceOccupancy]);
+
+  useEffect(() => {
+    if (runtime.clock.status !== "running") {
+      return undefined;
+    }
+    const interval = window.setInterval(() => {
+      setRuntime((current) =>
+        current.clock.status === "running"
+          ? advanceSimulationBy(current, current.config.tickSeconds)
+          : current
+      );
+    }, 1000);
+    return () => window.clearInterval(interval);
+  }, [runtime.clock.status]);
 
   function reset(): void {
     setRuntime(initializeSimulation(input));
-    setFilters({ missionId: "", eventType: "", severity: "", resourceId: "" });
+    setFilters({
+      assetId: "",
+      causalEventId: "",
+      fromTime: "",
+      missionId: "",
+      eventType: "",
+      severity: "",
+      resourceId: "",
+      toTime: "",
+    });
   }
 
   function focusSelection(selection: ScenarioSelection | null): void {
@@ -109,6 +166,7 @@ export function SimulationWorkspace({ inputOverride }: SimulationWorkspaceProps)
           headingStatus="Simulation map"
           headingTitle="Simulation Scenario Map"
           key={focusRequest?.requestId ?? "simulation-map"}
+          liveOverlay={liveOverlay}
           model={mapModel}
           sectionId="simulation-map"
         />
@@ -122,6 +180,8 @@ export function SimulationWorkspace({ inputOverride }: SimulationWorkspaceProps)
       <div className="simulation-grid simulation-grid-wide">
         <EventTimelinePanel
           eventTypes={eventTypes}
+          assetIds={assetIds}
+          causalEventIds={causalEventIds}
           filters={filters}
           missionIds={missionIds}
           onFilterChange={setFilters}
@@ -282,6 +342,8 @@ function OccupancyPanel({
 }
 
 function EventTimelinePanel({
+  assetIds,
+  causalEventIds,
   eventTypes,
   filters,
   missionIds,
@@ -290,6 +352,8 @@ function EventTimelinePanel({
   resourceIds,
   visibleEvents,
 }: {
+  assetIds: readonly string[];
+  causalEventIds: readonly string[];
   eventTypes: readonly string[];
   filters: EventFilters;
   missionIds: readonly string[];
@@ -348,6 +412,48 @@ function EventTimelinePanel({
             {resourceIds.map((id) => <option key={id} value={id}>{id}</option>)}
           </select>
         </label>
+        <label>
+          Asset
+          <select
+            aria-label="Filter events by asset"
+            onChange={(event) => onFilterChange({ ...filters, assetId: event.currentTarget.value })}
+            value={filters.assetId}
+          >
+            <option value="">All assets</option>
+            {assetIds.map((id) => <option key={id} value={id}>{id}</option>)}
+          </select>
+        </label>
+        <label>
+          Causal chain
+          <select
+            aria-label="Filter events by causal chain"
+            onChange={(event) => onFilterChange({ ...filters, causalEventId: event.currentTarget.value })}
+            value={filters.causalEventId}
+          >
+            <option value="">All chains</option>
+            {causalEventIds.map((id) => <option key={id} value={id}>{id}</option>)}
+          </select>
+        </label>
+        <label>
+          From time
+          <input
+            aria-label="Filter events from time"
+            onChange={(event) => onFilterChange({ ...filters, fromTime: event.currentTarget.value })}
+            placeholder="2026-07-10T00:00:00.000Z"
+            type="text"
+            value={filters.fromTime}
+          />
+        </label>
+        <label>
+          To time
+          <input
+            aria-label="Filter events to time"
+            onChange={(event) => onFilterChange({ ...filters, toTime: event.currentTarget.value })}
+            placeholder="2026-07-10T00:05:00.000Z"
+            type="text"
+            value={filters.toTime}
+          />
+        </label>
       </div>
       <ol className="simulation-events">
         {visibleEvents.map((event) => (
@@ -384,7 +490,7 @@ function AssetEnergyPanel({
               <strong>{asset.label}</strong>
               <span>{asset.kind} · {asset.health}</span>
               <small>
-                {asset.tileId ?? asset.serviceZoneId ?? "unstaged"}
+                {asset.nodeId ?? asset.tileId ?? asset.serviceZoneId ?? "unstaged"}
                 {asset.battery ? ` · ${formatNumber(asset.battery.stateOfChargeWh)} / ${formatNumber(asset.battery.usableCapacityWh)} Wh` : ""}
               </small>
             </div>

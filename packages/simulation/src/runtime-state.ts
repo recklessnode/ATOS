@@ -1,4 +1,5 @@
-import type { DispatchPlannerResult, MissionPlan } from "@atos/dispatch";
+import type { DispatchPlannerResult, DispatchReservationType, MissionPlan } from "@atos/dispatch";
+import type { ScenarioDocumentV1 } from "@atos/scenario";
 import { createSimulationClock, mergeSimulationConfig } from "./clock";
 import { orderedEventQueue, scheduleEvent } from "./event-queue";
 import type {
@@ -22,7 +23,7 @@ export function createInitialRuntimeState(input: SimulationInput): SimulationRun
     eventQueue: [],
     eventHistory: [],
     missions: input.dispatchResult.missionPlans.map((plan) => runtimeMission(plan, input.dispatchResult)),
-    assets: input.dispatchResult.assets.map(runtimeAsset),
+    assets: input.dispatchResult.assets.map((asset) => runtimeAsset(asset, input.scenario)),
     consists: input.dispatchResult.transientSuperWorkers.map((superWorker) => ({
       id: `runtime-consist:${superWorker.id}`,
       superWorker,
@@ -114,6 +115,80 @@ export function missionServiceZoneResourceIds(plan: MissionPlan): string[] {
     .sort();
 }
 
+export function missionReservedResourceIds(
+  state: SimulationRuntimeState,
+  missionId: string,
+  resourceType?: DispatchReservationType,
+): string[] {
+  return state.reservations
+    .filter((reservation) =>
+      reservation.reservation.missionPlanId === missionId &&
+      (!resourceType || reservation.reservation.resourceType === resourceType)
+    )
+    .map((reservation) => reservation.reservation.resourceId)
+    .sort();
+}
+
+export function activateMissionResourceReservations(
+  state: SimulationRuntimeState,
+  missionId: string,
+  resourceIds: readonly string[],
+  acquiredAt: string,
+): SimulationRuntimeState {
+  const resources = new Set(resourceIds);
+  return {
+    ...state,
+    reservations: state.reservations.map((reservation) =>
+      reservation.reservation.missionPlanId === missionId && resources.has(reservation.reservation.resourceId)
+        ? { ...reservation, status: "active", acquiredAt, releasedAt: undefined }
+        : reservation
+    ),
+  };
+}
+
+export function deactivateMissionResourceReservations(
+  state: SimulationRuntimeState,
+  missionId: string,
+  resourceIds: readonly string[],
+  releasedAt: string,
+): SimulationRuntimeState {
+  const resources = new Set(resourceIds);
+  return {
+    ...state,
+    reservations: state.reservations.map((reservation) =>
+      reservation.reservation.missionPlanId === missionId && resources.has(reservation.reservation.resourceId)
+        ? { ...reservation, status: "held", releasedAt }
+        : reservation
+    ),
+  };
+}
+
+export function missionReservationCoversStart(
+  state: SimulationRuntimeState,
+  missionId: string,
+  resourceId: string,
+  timestamp: string,
+): { available: true } | { available: false; retryAt: string; reason: string } {
+  const reservation = state.reservations.find((candidate) =>
+    candidate.reservation.missionPlanId === missionId && candidate.reservation.resourceId === resourceId
+  );
+  if (!reservation) {
+    return {
+      available: false,
+      retryAt: timestamp,
+      reason: `No dispatch reservation exists for ${resourceId}.`,
+    };
+  }
+  if (Date.parse(timestamp) < Date.parse(reservation.reservation.startTime)) {
+    return {
+      available: false,
+      retryAt: reservation.reservation.startTime,
+      reason: `Dispatch reservation for ${resourceId} starts at ${reservation.reservation.startTime}.`,
+    };
+  }
+  return { available: true };
+}
+
 export function releaseMissionReservations(
   state: SimulationRuntimeState,
   missionId: string,
@@ -164,18 +239,47 @@ function runtimeMission(plan: MissionPlan, result: DispatchPlannerResult): Runti
   };
 }
 
-function runtimeAsset(asset: DispatchPlannerResult["assets"][number]): RuntimeAssetState {
+function runtimeAsset(asset: DispatchPlannerResult["assets"][number], scenario: ScenarioDocumentV1): RuntimeAssetState {
   return {
     assetId: asset.id,
     label: asset.label,
     kind: asset.kind,
     tileId: asset.tileId,
+    nodeId: nodeIdForAsset(asset, scenario),
     serviceZoneId: asset.serviceZoneId,
     battery: asset.battery ? { ...asset.battery } : undefined,
     health: asset.state === "maintenance" ? "maintenance_due" : "nominal",
     faultIds: [],
     capacity: { ...asset.capacity },
   };
+}
+
+function nodeIdForAsset(
+  asset: DispatchPlannerResult["assets"][number],
+  scenario: ScenarioDocumentV1,
+): string | undefined {
+  const serviceAttachment = asset.serviceZoneId
+    ? scenario.guideway.serviceAttachments.find((attachment) => attachment.serviceZoneId === asset.serviceZoneId)
+    : undefined;
+  if (serviceAttachment) {
+    return serviceAttachment.nodeId;
+  }
+
+  const stationAttachment = asset.stationId && !asset.serviceZoneId
+    ? scenario.guideway.serviceAttachments.find((attachment) => attachment.stationId === asset.stationId && !attachment.serviceZoneId)
+    : undefined;
+  if (stationAttachment) {
+    return stationAttachment.nodeId;
+  }
+
+  const tileAttachment = asset.tileId
+    ? scenario.guideway.serviceAttachments.find((attachment) => attachment.tileId === asset.tileId)
+    : undefined;
+  if (tileAttachment) {
+    return tileAttachment.nodeId;
+  }
+
+  return scenario.guideway.nodes.find((node) => node.tileId === asset.tileId)?.id;
 }
 
 function runtimeReservation(reservation: DispatchPlannerResult["reservations"][number]): RuntimeReservation {

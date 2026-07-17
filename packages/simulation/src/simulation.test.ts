@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   advanceSimulationBy,
+  canTransitionMissionState,
   createSimulationEvent,
   createSimulationFixture,
   filterSimulationEvents,
@@ -16,6 +17,8 @@ import {
   serializeEventLog,
   setSimulationPlaybackSpeed,
   stepSimulationToNextEvent,
+  type SimulationEventType,
+  type SimulationRuntimeState,
 } from ".";
 
 describe("ATOS simulation engine", () => {
@@ -86,6 +89,13 @@ describe("ATOS simulation engine", () => {
     ]));
   });
 
+  it("rejects lifecycle transitions outside the explicit mission graph", () => {
+    expect(canTransitionMissionState("planned", "queued")).toBe(true);
+    expect(canTransitionMissionState("loading", "ready")).toBe(true);
+    expect(canTransitionMissionState("completed", "loading")).toBe(false);
+    expect(canTransitionMissionState("blocked", "in_transit")).toBe(false);
+  });
+
   it("acquires and releases guideway occupancy for traversed links", () => {
     const result = runSimulationToCompletion(createSimulationFixture("consist-formation-split"));
     const entered = result.eventHistory.filter((event) => event.type === "guideway_segment_entered");
@@ -96,6 +106,28 @@ describe("ATOS simulation engine", () => {
     expect(result.guidewayOccupancy).toHaveLength(0);
   });
 
+  it("activates service reservations only while service actions execute", () => {
+    let state = initializeSimulation(createSimulationFixture("consist-formation-split"));
+    state = stepUntilEvent(state, "loading_started");
+
+    const loadingResources = state.serviceOccupancy
+      .filter((occupancy) => occupancy.action === "loading")
+      .map((occupancy) => occupancy.resourceId);
+    expect(loadingResources.length).toBeGreaterThan(0);
+    expect(state.reservations.filter((reservation) =>
+      loadingResources.includes(reservation.reservation.resourceId)
+    ).map((reservation) => reservation.status)).toEqual(loadingResources.map(() => "active"));
+
+    state = stepUntilEvent(state, "loading_completed");
+    expect(state.serviceOccupancy.filter((occupancy) => occupancy.action === "loading")).toHaveLength(0);
+    expect(state.reservations.filter((reservation) =>
+      loadingResources.includes(reservation.reservation.resourceId)
+    ).every((reservation) => reservation.status === "held")).toBe(true);
+
+    state = stepUntilEvent(state, "unloading_started");
+    expect(state.serviceOccupancy.some((occupancy) => occupancy.action === "unloading")).toBe(true);
+  });
+
   it("delays conflicting reservations and resolves the conflict deterministically", () => {
     const first = runSimulationToCompletion(createSimulationFixture("conflicting-deterministic"));
     const second = runSimulationToCompletion(createSimulationFixture("conflicting-deterministic"));
@@ -104,6 +136,25 @@ describe("ATOS simulation engine", () => {
     expect(conflicts.length).toBeGreaterThan(0);
     expect(first.missions.map((mission) => mission.state)).toEqual(["completed", "completed"]);
     expect(first.eventHistory.map(eventSignature)).toEqual(second.eventHistory.map(eventSignature));
+  });
+
+  it("advances mission member asset locations with the traversed guideway segment", () => {
+    let state = initializeSimulation(createSimulationFixture("consist-formation-split"));
+    state = stepUntilEvent(state, "guideway_segment_entered");
+    const entered = state.eventHistory.find((event) => event.type === "guideway_segment_entered");
+    const link = state.scenario.guideway.links.find((candidate) => candidate.id === entered?.payload.linkId);
+    const mission = state.missions[0];
+
+    expect(link).toBeDefined();
+    expect(mission?.currentNodeId).toBe(link?.fromNodeId);
+    expect(state.assets.filter((asset) => mission?.plan.assetIds.includes(asset.assetId)).every((asset) =>
+      asset.nodeId === link?.fromNodeId
+    )).toBe(true);
+
+    state = stepUntilEvent(state, "guideway_segment_exited");
+    expect(state.assets.filter((asset) => mission?.plan.assetIds.includes(asset.assetId)).every((asset) =>
+      asset.nodeId === link?.toNodeId
+    )).toBe(true);
   });
 
   it("derives deterministic station dwell, loading, and unloading quantities", () => {
@@ -120,6 +171,20 @@ describe("ATOS simulation engine", () => {
     );
     expect(String(loadingCompleted?.payload.loadedQuantity)).toContain("massKg");
     expect(String(unloadingCompleted?.payload.unloadedQuantity)).toContain("massKg");
+  });
+
+  it("records grouped chit fulfillment with each chit quantity rather than the aggregate manifest", () => {
+    const result = runSimulationToCompletion(createSimulationFixture("consist-formation-split"));
+    const mission = result.missions[0];
+    const commuter = mission?.chitProgress.find((progress) => progress.chitId === "chit-commuter");
+    const cargo = mission?.chitProgress.find((progress) => progress.chitId === "chit-cargo");
+
+    expect(commuter?.loaded).toMatchObject({ passengers: 6 });
+    expect(commuter?.loaded.massKg).toBeUndefined();
+    expect(cargo?.loaded).toMatchObject({ massKg: 8, volumeLiters: 40 });
+    expect(cargo?.loaded.passengers).toBeUndefined();
+    expect(commuter?.unloaded).toEqual(commuter?.loaded);
+    expect(cargo?.unloaded).toEqual(cargo?.loaded);
   });
 
   it("forms and dissolves software-defined consists while preserving member identities", () => {
@@ -152,6 +217,26 @@ describe("ATOS simulation engine", () => {
     expect(result.assets.every((asset) =>
       !asset.battery || asset.battery.stateOfChargeWh <= asset.battery.usableCapacityWh
     )).toBe(true);
+  });
+
+  it("requires charging service and power reservations before applying charge", () => {
+    let state = initializeSimulation(createSimulationFixture("battery-support"));
+    state = stepUntilEvent(state, "charging_started");
+    const mission = state.missions[0];
+    const chargingOccupancy = state.serviceOccupancy.find((occupancy) => occupancy.action === "charging");
+    const powerReservation = state.reservations.find((reservation) =>
+      reservation.reservation.missionPlanId === mission?.plan.id &&
+      reservation.reservation.resourceType === "power-window"
+    );
+
+    expect(chargingOccupancy).toBeDefined();
+    expect(powerReservation?.status).toBe("active");
+
+    state = stepUntilEvent(state, "charging_completed");
+    expect(state.serviceOccupancy.some((occupancy) => occupancy.action === "charging")).toBe(false);
+    expect(state.reservations.find((reservation) =>
+      reservation.reservation.id === powerReservation?.reservation.id
+    )?.status).toBe("held");
   });
 
   it("emits battery reserve violations instead of silently overdrawing energy", () => {
@@ -244,6 +329,20 @@ describe("ATOS simulation engine", () => {
 
 function eventSignature(event: { timestamp: string; type: string; missionId?: string; affectedResourceIds: readonly string[] }) {
   return `${event.timestamp}|${event.type}|${event.missionId ?? ""}|${event.affectedResourceIds.join(",")}`;
+}
+
+function stepUntilEvent(
+  state: SimulationRuntimeState,
+  type: SimulationEventType,
+): SimulationRuntimeState {
+  let next = state;
+  for (let index = 0; index < 500; index += 1) {
+    next = stepSimulationToNextEvent(next);
+    if (next.eventHistory.at(-1)?.type === type) {
+      return next;
+    }
+  }
+  throw new Error(`Event ${type} was not reached.`);
 }
 
 function sourceFiles(path: string): string[] {

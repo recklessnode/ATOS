@@ -41,7 +41,8 @@
 .simulation-controls button,
 .simulation-panel button,
 .simulation-controls select,
-.simulation-filters select {
+.simulation-filters select,
+.simulation-filters input {
   min-height: 36px;
   border: 1px solid #9ab2a8;
   border-radius: 8px;
@@ -68,7 +69,8 @@
 }
 
 .simulation-controls select,
-.simulation-filters select {
+.simulation-filters select,
+.simulation-filters input {
   padding: 6px 28px 6px 8px;
   text-transform: none;
 }

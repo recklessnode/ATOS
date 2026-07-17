@@ -258,6 +258,35 @@
   text-anchor: middle;
 }
 
+.live-occupancy-overlay {
+  pointer-events: none;
+}
+
+.live-occupancy-guideway line {
+  fill: none;
+  stroke: #0b6b58;
+  stroke-dasharray: 10 6;
+  stroke-linecap: round;
+  stroke-width: 14;
+}
+
+.live-occupancy-service circle {
+  fill: none;
+  stroke: #0b6b58;
+  stroke-dasharray: 5 4;
+  stroke-width: 5;
+}
+
+.live-occupancy text {
+  fill: #0b3d33;
+  font-size: 11px;
+  font-weight: 900;
+  paint-order: stroke;
+  stroke: #ffffff;
+  stroke-width: 3px;
+  text-anchor: middle;
+}
+
 .power-overlay {
   pointer-events: auto;
 }

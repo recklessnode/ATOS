@@ -13,6 +13,7 @@ import {
   raiseFault,
   scheduledFaultById,
 } from "./faults";
+import { transitionMissionLifecycleState } from "./lifecycle";
 import {
   acquireGuidewayOccupancy,
   acquireServiceOccupancy,
@@ -22,9 +23,13 @@ import {
 } from "./occupancy";
 import { createReplanningRequest } from "./replanning-boundary";
 import {
+  activateMissionResourceReservations,
+  deactivateMissionResourceReservations,
   findMission,
   holdMissionReservations,
   missionChits,
+  missionReservedResourceIds,
+  missionReservationCoversStart,
   missionServiceZoneResourceIds,
   releaseMissionReservations,
   updateAssets,
@@ -39,6 +44,7 @@ import {
 import {
   loadedQuantityForChits,
   loadingDurationSeconds,
+  quantityForChit,
   requiresChargingAction,
   requiresMaintenanceAction,
   unloadedQuantityForChits,
@@ -46,6 +52,7 @@ import {
 } from "./station-actions";
 import type {
   RuntimeMission,
+  ServiceOccupancy,
   SimulationEvent,
   SimulationInput,
   SimulationRuntimeState,
@@ -156,9 +163,9 @@ function applySimulationEvent(
     case "charging_completed":
       return handleChargingCompleted(state, event);
     case "maintenance_started":
-      return scheduleNext(setMissionState(state, event, "servicing"), event, "maintenance_completed", state.config.maintenanceSeconds);
+      return handleMaintenanceStarted(state, event);
     case "maintenance_completed":
-      return scheduleNext(state, event, "consist_split_started", 0);
+      return handleMaintenanceCompleted(state, event);
     case "consist_split_started":
       return handleConsistSplitStarted(state, event);
     case "consist_split_completed":
@@ -195,6 +202,13 @@ function handleMissionAccepted(
     mission.plan.id,
     event.timestamp,
   );
+  next = activateMissionResourceReservations(
+    next,
+    mission.plan.id,
+    mission.plan.assetIds.map((assetId) => `asset:${assetId}`),
+    event.timestamp,
+  );
+  next = updateMissionAssetsNode(next, mission.plan.id, mission.plan.route.originNodeId);
   next = updateMission(next, mission.plan.id, (current) => ({ ...current, startedAt: event.timestamp }));
   return scheduleNext(next, event, "formation_started", 0);
 }
@@ -203,7 +217,22 @@ function handleFormationStarted(
   state: SimulationRuntimeState,
   event: SimulationEvent,
 ): SimulationRuntimeState {
-  const next = startMissionConsistFormation(setMissionState(state, event, "forming"), event.missionId ?? "");
+  const mission = findMission(state, event.missionId);
+  if (!mission) {
+    return state;
+  }
+  const acquisition = acquireMissionServiceResources(
+    state,
+    event,
+    mission,
+    "formation",
+    state.config.formationSeconds,
+    serviceResourceIdsForAction(state, mission, "formation"),
+  );
+  if (!acquisition.acquired) {
+    return acquisition.state;
+  }
+  const next = startMissionConsistFormation(setMissionState(acquisition.state, event, "forming"), mission.plan.id);
   return scheduleNext(next, event, "consist_join_started", 0);
 }
 
@@ -214,7 +243,8 @@ function handleFormationCompleted(
   if (!event.missionId) {
     return state;
   }
-  const next = formMissionConsist(state, event.missionId, event.timestamp);
+  const released = releaseMissionServiceResources(state, event.missionId, "formation", event.timestamp);
+  const next = formMissionConsist(released, event.missionId, event.timestamp);
   return scheduleNext(next, event, "loading_started", 0);
 }
 
@@ -227,7 +257,19 @@ function handleLoadingStarted(
     return state;
   }
   const chits = missionChits(state, mission.plan);
-  return scheduleNext(setMissionState(state, event, "loading"), event, "loading_completed", loadingDurationSeconds(state, chits), {
+  const duration = loadingDurationSeconds(state, chits);
+  const acquisition = acquireMissionServiceResources(
+    state,
+    event,
+    mission,
+    "loading",
+    duration,
+    serviceResourceIdsForAction(state, mission, "loading"),
+  );
+  if (!acquisition.acquired) {
+    return acquisition.state;
+  }
+  return scheduleNext(setMissionState(acquisition.state, event, "loading"), event, "loading_completed", duration, {
     loadedQuantity: JSON.stringify(loadedQuantityForChits(chits)),
   });
 }
@@ -244,12 +286,13 @@ function handleLoadingCompleted(
     return state;
   }
   const chits = missionChits(state, mission.plan);
-  const loaded = loadedQuantityForChits(chits);
-  const next = updateMission(setMissionState(state, event, "ready"), mission.plan.id, (current) => ({
+  const quantityByChitId = new Map(chits.map((chit) => [chit.id, quantityForChit(chit)]));
+  const released = releaseMissionServiceResources(state, mission.plan.id, "loading", event.timestamp);
+  const next = updateMission(setMissionState(released, event, "ready"), mission.plan.id, (current) => ({
     ...current,
     chitProgress: current.chitProgress.map((progress) => ({
       ...progress,
-      loaded,
+      loaded: quantityByChitId.get(progress.chitId) ?? {},
       status: "loaded",
     })),
   }));
@@ -423,12 +466,24 @@ function handleGuidewayEntered(
     return next;
   }
 
-  let next = updateMission(setMissionState(acquisition.state, event, "in_transit"), mission.plan.id, (current) => ({
+  const link = acquisition.state.scenario.guideway.links.find((candidate) => candidate.id === linkId);
+  let next = activateMissionResourceReservations(
+    acquisition.state,
+    mission.plan.id,
+    [`guideway-link:${linkId}`],
+    event.timestamp,
+  );
+  next = updateMission(setMissionState(next, event, "in_transit"), mission.plan.id, (current) => ({
     ...current,
+    currentNodeId: link?.fromNodeId ?? current.currentNodeId,
     currentLinkId: linkId,
     routeIndex,
   }));
-  next = updateAssets(next, mission.plan.assetIds, (asset) => ({ ...asset, activeMissionId: mission.plan.id }));
+  next = updateAssets(next, mission.plan.assetIds, (asset) => ({
+    ...asset,
+    activeMissionId: mission.plan.id,
+    nodeId: link?.fromNodeId ?? asset.nodeId,
+  }));
   return scheduleEvent(next, {
     timestamp: advanceIsoTime(event.timestamp, travelSeconds),
     type: "guideway_segment_exited",
@@ -452,7 +507,13 @@ function handleGuidewayExited(
     return state;
   }
   const energyWh = typeof event.payload.energyWh === "number" ? event.payload.energyWh : linkEnergyWh(state, linkId);
-  let next = releaseGuidewayOccupancy(consumeMissionEnergy(state, mission.plan.id, energyWh), linkId, mission.plan.id);
+  let next = deactivateMissionResourceReservations(
+    consumeMissionEnergy(state, mission.plan.id, energyWh),
+    mission.plan.id,
+    [`guideway-link:${linkId}`],
+    event.timestamp,
+  );
+  next = releaseGuidewayOccupancy(next, linkId, mission.plan.id);
   const link = next.scenario.guideway.links.find((candidate) => candidate.id === linkId);
   const nextNodeId = link?.toNodeId ?? mission.plan.route.pathNodeIds[routeIndex + 1];
   next = updateMission(next, mission.plan.id, (current) => ({
@@ -460,6 +521,7 @@ function handleGuidewayExited(
     currentNodeId: nextNodeId,
     currentLinkId: undefined,
   }));
+  next = updateMissionAssetsNode(next, mission.plan.id, nextNodeId);
 
   const nextIndex = routeIndex + 1;
   if (nextIndex >= mission.plan.route.linkIds.length) {
@@ -472,7 +534,9 @@ function handleStationArrived(
   state: SimulationRuntimeState,
   event: SimulationEvent,
 ): SimulationRuntimeState {
-  return scheduleNext(setMissionState(state, event, "dwelling"), event, "unloading_started", state.config.dwellSeconds);
+  const mission = findMission(state, event.missionId);
+  const located = mission ? updateMissionAssetsNode(state, mission.plan.id, mission.plan.route.destinationNodeId) : state;
+  return scheduleNext(setMissionState(located, event, "dwelling"), event, "unloading_started", state.config.dwellSeconds);
 }
 
 function handleUnloadingStarted(
@@ -485,20 +549,14 @@ function handleUnloadingStarted(
   }
   const chits = missionChits(state, mission.plan);
   const duration = unloadingDurationSeconds(state, chits);
-  const resourceId = missionServiceZoneResourceIds(mission.plan).at(-1) ?? mission.plan.route.destinationNodeId;
-  const acquisition = acquireServiceOccupancy(state, {
-    resourceId,
-    missionId: mission.plan.id,
-    action: "unloading",
-    startTime: event.timestamp,
-    durationSeconds: duration,
-  });
+  const resourceIds = serviceResourceIdsForAction(state, mission, "unloading");
+  const acquisition = acquireMissionServiceResources(state, event, mission, "unloading", duration, resourceIds);
   if (!acquisition.acquired) {
-    return scheduleDelay(state, event, "Destination service zone is occupied.", state.config.conflictRetrySeconds);
+    return acquisition.state;
   }
   return scheduleNext(setMissionState(acquisition.state, event, "unloading"), event, "unloading_completed", duration, {
     unloadedQuantity: JSON.stringify(unloadedQuantityForChits(chits)),
-    resourceId,
+    resourceIds: JSON.stringify(resourceIds),
   });
 }
 
@@ -511,13 +569,13 @@ function handleUnloadingCompleted(
     return state;
   }
   const chits = missionChits(state, mission.plan);
-  const unloaded = unloadedQuantityForChits(chits);
-  let next = releaseServiceOccupancy(state, mission.plan.id, "unloading");
+  const quantityByChitId = new Map(chits.map((chit) => [chit.id, quantityForChit(chit)]));
+  let next = releaseMissionServiceResources(state, mission.plan.id, "unloading", event.timestamp);
   next = updateMission(next, mission.plan.id, (current) => ({
     ...current,
     chitProgress: current.chitProgress.map((progress) => ({
       ...progress,
-      unloaded,
+      unloaded: quantityByChitId.get(progress.chitId) ?? {},
       status: "satisfied",
     })),
   }));
@@ -534,8 +592,70 @@ function handleChargingStarted(
   state: SimulationRuntimeState,
   event: SimulationEvent,
 ): SimulationRuntimeState {
+  const mission = findMission(state, event.missionId);
+  if (!mission) {
+    return state;
+  }
+  if (mission.plan.launchGate.status === "blocked") {
+    return scheduleEvent(setMissionState(state, event, "blocked"), {
+      timestamp: event.timestamp,
+      type: "power_gate_failed",
+      missionId: mission.plan.id,
+      transientWorkerId: mission.plan.superWorkerId,
+      affectedAssetIds: mission.plan.assetIds,
+      affectedResourceIds: mission.plan.launchGate.affectedPowerIds,
+      causalEventId: event.id,
+      payload: { reason: mission.plan.launchGate.message, action: "charging" },
+      severity: "error",
+    });
+  }
+  if (mission.plan.launchGate.status === "delayed") {
+    return scheduleResourceRetry(
+      state,
+      event,
+      "Charging is delayed by the mission power launch gate.",
+      mission.plan.launchGate.affectedPowerIds,
+      advanceIsoTime(event.timestamp, state.config.conflictRetrySeconds),
+    );
+  }
+  const resourceIds = serviceResourceIdsForAction(state, mission, "charging");
+  const blockingFault = resourceIds
+    .flatMap((resourceId) => activeFaultsForTarget(state, resourceId))
+    .find((fault) => fault.type === "charger_unavailable" || fault.type === "station_service_unavailable");
+  if (blockingFault) {
+    if (blockingFault.behavior === "delay") {
+      return scheduleResourceRetry(
+        state,
+        event,
+        blockingFault.message,
+        [blockingFault.targetId],
+        advanceIsoTime(event.timestamp, blockingFault.delaySeconds ?? state.config.conflictRetrySeconds),
+      );
+    }
+    return scheduleEvent(setMissionState(state, event, "blocked"), {
+      timestamp: event.timestamp,
+      type: blockingFault.behavior === "fail" ? "mission_failed" : "replanning_requested",
+      missionId: mission.plan.id,
+      transientWorkerId: mission.plan.superWorkerId,
+      affectedAssetIds: mission.plan.assetIds,
+      affectedResourceIds: [blockingFault.targetId],
+      causalEventId: event.id,
+      payload: { faultId: blockingFault.id, reason: blockingFault.message },
+      severity: "error",
+    });
+  }
   const duration = Math.ceil((state.config.minimumBatteryReserveWh * 3600) / state.config.chargingPowerWatts);
-  return scheduleNext(setMissionState(state, event, "servicing"), event, "charging_completed", duration);
+  const acquisition = acquireMissionServiceResources(state, event, mission, "charging", duration, resourceIds);
+  if (!acquisition.acquired) {
+    return acquisition.state;
+  }
+  const powerResourceIds = missionReservedResourceIds(acquisition.state, mission.plan.id, "power-window");
+  const powered = activateMissionResourceReservations(acquisition.state, mission.plan.id, powerResourceIds, event.timestamp);
+  return scheduleNext(setMissionState(powered, event, "servicing"), event, "charging_completed", duration, {
+    chargingPowerWatts: state.config.chargingPowerWatts,
+    durationSeconds: duration,
+    resourceIds: JSON.stringify(resourceIds),
+  });
 }
 
 function handleChargingCompleted(
@@ -546,12 +666,55 @@ function handleChargingCompleted(
   if (!mission) {
     return state;
   }
-  const durationSeconds = Math.ceil((state.config.minimumBatteryReserveWh * 3600) / state.config.chargingPowerWatts);
-  const next = chargeMissionAssets(state, mission.plan.id, durationSeconds);
+  const durationSeconds = typeof event.payload.durationSeconds === "number"
+    ? event.payload.durationSeconds
+    : Math.ceil((state.config.minimumBatteryReserveWh * 3600) / state.config.chargingPowerWatts);
+  let next = chargeMissionAssets(state, mission.plan.id, durationSeconds);
+  next = releaseMissionServiceResources(next, mission.plan.id, "charging", event.timestamp);
+  next = deactivateMissionResourceReservations(
+    next,
+    mission.plan.id,
+    missionReservedResourceIds(next, mission.plan.id, "power-window"),
+    event.timestamp,
+  );
   const chits = missionChits(next, mission.plan);
   if (requiresMaintenanceAction(chits)) {
     return scheduleNext(next, event, "maintenance_started", 0);
   }
+  return scheduleNext(next, event, "consist_split_started", 0);
+}
+
+function handleMaintenanceStarted(
+  state: SimulationRuntimeState,
+  event: SimulationEvent,
+): SimulationRuntimeState {
+  const mission = findMission(state, event.missionId);
+  if (!mission) {
+    return state;
+  }
+  const duration = state.config.maintenanceSeconds;
+  const acquisition = acquireMissionServiceResources(
+    state,
+    event,
+    mission,
+    "maintenance",
+    duration,
+    serviceResourceIdsForAction(state, mission, "maintenance"),
+  );
+  if (!acquisition.acquired) {
+    return acquisition.state;
+  }
+  return scheduleNext(setMissionState(acquisition.state, event, "servicing"), event, "maintenance_completed", duration);
+}
+
+function handleMaintenanceCompleted(
+  state: SimulationRuntimeState,
+  event: SimulationEvent,
+): SimulationRuntimeState {
+  if (!event.missionId) {
+    return state;
+  }
+  const next = releaseMissionServiceResources(state, event.missionId, "maintenance", event.timestamp);
   return scheduleNext(next, event, "consist_split_started", 0);
 }
 
@@ -560,7 +723,27 @@ function handleConsistSplitStarted(
   event: SimulationEvent,
 ): SimulationRuntimeState {
   const missionId = event.missionId ?? "";
-  return scheduleNext(startMissionConsistSplit(setMissionState(state, event, "servicing"), missionId), event, "consist_split_completed", state.config.splitSeconds);
+  const mission = findMission(state, missionId);
+  if (!mission) {
+    return state;
+  }
+  const acquisition = acquireMissionServiceResources(
+    state,
+    event,
+    mission,
+    "split",
+    state.config.splitSeconds,
+    serviceResourceIdsForAction(state, mission, "split"),
+  );
+  if (!acquisition.acquired) {
+    return acquisition.state;
+  }
+  return scheduleNext(
+    startMissionConsistSplit(setMissionState(acquisition.state, event, "servicing"), missionId),
+    event,
+    "consist_split_completed",
+    state.config.splitSeconds,
+  );
 }
 
 function handleConsistSplitCompleted(
@@ -570,7 +753,8 @@ function handleConsistSplitCompleted(
   if (!event.missionId) {
     return state;
   }
-  const next = dissolveMissionConsist(state, event.missionId, event.timestamp);
+  const released = releaseMissionServiceResources(state, event.missionId, "split", event.timestamp);
+  const next = dissolveMissionConsist(released, event.missionId, event.timestamp);
   return scheduleNext(next, event, "mission_completed", 0);
 }
 
@@ -693,6 +877,178 @@ function requestReplanningAfterFailure(
     : next;
 }
 
+type MissionServiceAction = ServiceOccupancy["action"];
+
+function acquireMissionServiceResources(
+  state: SimulationRuntimeState,
+  event: SimulationEvent,
+  mission: RuntimeMission,
+  action: MissionServiceAction,
+  durationSeconds: number,
+  resourceIds: readonly string[],
+): { acquired: true; state: SimulationRuntimeState } | { acquired: false; state: SimulationRuntimeState } {
+  const resources = uniqueSorted(resourceIds);
+  if (resources.length === 0) {
+    return { acquired: true, state };
+  }
+
+  let next = state;
+  const acquiredResources: string[] = [];
+  for (const resourceId of resources) {
+    const reservation = missionReservationCoversStart(next, mission.plan.id, resourceId, event.timestamp);
+    if (!reservation.available) {
+      const rolledBack = releaseMissionServiceResources(next, mission.plan.id, action, event.timestamp);
+      return {
+        acquired: false,
+        state: scheduleResourceRetry(rolledBack, event, reservation.reason, [resourceId], reservation.retryAt),
+      };
+    }
+
+    next = activateMissionResourceReservations(next, mission.plan.id, [resourceId], event.timestamp);
+    const acquisition = acquireServiceOccupancy(next, {
+      resourceId,
+      missionId: mission.plan.id,
+      action,
+      startTime: event.timestamp,
+      durationSeconds,
+    });
+    if (!acquisition.acquired) {
+      let rolledBack = releaseServiceOccupancy(acquisition.state, mission.plan.id, action);
+      rolledBack = deactivateMissionResourceReservations(
+        rolledBack,
+        mission.plan.id,
+        [...acquiredResources, resourceId],
+        event.timestamp,
+      );
+      return {
+        acquired: false,
+        state: scheduleResourceRetry(
+          rolledBack,
+          event,
+          `${resourceId} is occupied by ${acquisition.conflict?.missionId ?? "another mission"}.`,
+          [resourceId],
+          acquisition.retryAt,
+        ),
+      };
+    }
+
+    next = acquisition.state;
+    acquiredResources.push(resourceId);
+  }
+
+  return { acquired: true, state: next };
+}
+
+function releaseMissionServiceResources(
+  state: SimulationRuntimeState,
+  missionId: string,
+  action: MissionServiceAction,
+  timestamp: string,
+): SimulationRuntimeState {
+  const occupiedResources = state.serviceOccupancy
+    .filter((occupancy) => occupancy.missionId === missionId && occupancy.action === action)
+    .map((occupancy) => occupancy.resourceId);
+  const deactivated = deactivateMissionResourceReservations(state, missionId, occupiedResources, timestamp);
+  return releaseServiceOccupancy(deactivated, missionId, action);
+}
+
+function serviceResourceIdsForAction(
+  state: SimulationRuntimeState,
+  mission: RuntimeMission,
+  action: MissionServiceAction,
+): string[] {
+  const chits = missionChits(state, mission.plan);
+  const stationReservations = missionReservedResourceIds(state, mission.plan.id, "station-zone");
+
+  if (action === "loading") {
+    return endpointServiceResources(chits, "origin", stationReservations);
+  }
+  if (action === "unloading") {
+    return endpointServiceResources(chits, "destination", stationReservations);
+  }
+  if (action === "charging") {
+    const chargingResources = stationReservations.filter((resourceId) =>
+      serviceZoneType(state, resourceId) === "charging-siding"
+    );
+    return chargingResources.length > 0
+      ? chargingResources
+      : endpointServiceResources(chits, "destination", stationReservations);
+  }
+  if (action === "maintenance") {
+    const maintenanceResources = stationReservations.filter((resourceId) =>
+      serviceZoneType(state, resourceId) === "maintenance"
+    );
+    return maintenanceResources.length > 0 ? maintenanceResources : stationReservations;
+  }
+  if (action === "split") {
+    return endpointServiceResources(chits, "destination", stationReservations);
+  }
+  return stationReservations.length > 0 ? stationReservations : missionServiceZoneResourceIds(mission.plan);
+}
+
+function endpointServiceResources(
+  chits: ReturnType<typeof missionChits>,
+  endpoint: "origin" | "destination",
+  allowedResources: readonly string[],
+): string[] {
+  const allowed = new Set(allowedResources);
+  const resources = uniqueSorted(chits
+    .map((chit) => chit[endpoint].serviceZoneId ? `station-zone:${chit[endpoint].serviceZoneId}` : undefined)
+    .filter((resourceId): resourceId is string => Boolean(resourceId))
+    .filter((resourceId) => allowed.size === 0 || allowed.has(resourceId)));
+  return resources.length > 0 ? resources : uniqueSorted(allowedResources);
+}
+
+function serviceZoneType(state: SimulationRuntimeState, resourceId: string): string | undefined {
+  const zoneId = resourceId.replace(/^station-zone:/, "");
+  return state.scenario.serviceZones.find((zone) => zone.id === zoneId)?.type;
+}
+
+function scheduleResourceRetry(
+  state: SimulationRuntimeState,
+  event: SimulationEvent,
+  reason: string,
+  resourceIds: readonly string[],
+  retryAt = advanceIsoTime(event.timestamp, state.config.conflictRetrySeconds),
+): SimulationRuntimeState {
+  let next = scheduleEvent(setMissionState(state, event, "delayed"), {
+    timestamp: event.timestamp,
+    type: "reservation_conflict",
+    missionId: event.missionId,
+    transientWorkerId: event.transientWorkerId,
+    affectedAssetIds: event.affectedAssetIds,
+    affectedResourceIds: resourceIds,
+    causalEventId: event.id,
+    payload: { reason, retryAt, retryEventType: event.type },
+    severity: "warning",
+  });
+  next = scheduleEvent(next, {
+    timestamp: retryAt,
+    type: event.type,
+    missionId: event.missionId,
+    workerId: event.workerId,
+    transientWorkerId: event.transientWorkerId,
+    affectedAssetIds: event.affectedAssetIds,
+    affectedResourceIds: resourceIds,
+    causalEventId: event.id,
+    payload: { ...event.payload, retryAfterConflict: true },
+    severity: event.severity,
+  });
+  return next;
+}
+
+function updateMissionAssetsNode(
+  state: SimulationRuntimeState,
+  missionId: string,
+  nodeId: string | undefined,
+): SimulationRuntimeState {
+  const mission = findMission(state, missionId);
+  if (!mission || !nodeId) {
+    return state;
+  }
+  return updateAssets(state, mission.plan.assetIds, (asset) => ({ ...asset, nodeId }));
+}
+
 function scheduleGuidewayEnter(
   state: SimulationRuntimeState,
   event: SimulationEvent,
@@ -761,21 +1117,52 @@ function setMissionState(
   if (!event.missionId) {
     return state;
   }
-  return updateMission(state, event.missionId, (mission) => ({
-    ...mission,
-    state: lifecycleState,
-    eventIds: [...new Set([...mission.eventIds, event.id])].sort(),
-  }));
+  let rejected: { from: RuntimeMission["state"]; to: RuntimeMission["state"] } | undefined;
+  const updated = updateMission(state, event.missionId, (mission) => {
+    const transition = transitionMissionLifecycleState(mission, lifecycleState, event.id);
+    if (!transition.accepted) {
+      rejected = { from: transition.from, to: transition.to };
+    }
+    return transition.mission;
+  });
+  return rejected ? annotateRejectedLifecycleTransition(updated, event, rejected.from, rejected.to) : updated;
+}
+
+function annotateRejectedLifecycleTransition(
+  state: SimulationRuntimeState,
+  event: SimulationEvent,
+  from: RuntimeMission["state"],
+  to: RuntimeMission["state"],
+): SimulationRuntimeState {
+  return {
+    ...state,
+    eventHistory: state.eventHistory.map((appliedEvent) =>
+      appliedEvent.id === event.id
+        ? {
+            ...appliedEvent,
+            status: "skipped",
+            severity: "error",
+            payload: {
+              ...appliedEvent.payload,
+              rejectedTransition: `${from}->${to}`,
+              reason: `Mission lifecycle transition ${from}->${to} is not allowed.`,
+            },
+          }
+        : appliedEvent
+    ),
+  };
 }
 
 function markReservationConflict(
   state: SimulationRuntimeState,
   event: SimulationEvent,
 ): SimulationRuntimeState {
+  const affectedResources = new Set(event.affectedResourceIds);
   return {
     ...state,
     reservations: state.reservations.map((reservation) =>
-      reservation.reservation.missionPlanId === event.missionId
+      reservation.reservation.missionPlanId === event.missionId &&
+        (affectedResources.size === 0 || affectedResources.has(reservation.reservation.resourceId))
         ? {
             ...reservation,
             status: "conflict",
@@ -788,4 +1175,8 @@ function markReservationConflict(
 
 function isTerminalMission(mission: RuntimeMission): boolean {
   return ["completed", "failed", "cancelled", "blocked"].includes(mission.state);
+}
+
+function uniqueSorted(values: readonly string[]): string[] {
+  return [...new Set(values)].sort();
 }

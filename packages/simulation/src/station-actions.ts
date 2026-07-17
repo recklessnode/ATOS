@@ -32,6 +32,10 @@ export function unloadedQuantityForChits(chits: readonly DispatchChit[]): Vehicl
   return aggregateQuantity(chits);
 }
 
+export function quantityForChit(chit: DispatchChit): VehicleCapacity {
+  return aggregateQuantity([chit]);
+}
+
 export function requiresChargingAction(chits: readonly DispatchChit[], assetIds: readonly string[]): boolean {
   return chits.some((chit) => chit.kind === "battery-support" || (chit.quantity.energyWh ?? 0) > 0) ||
     assetIds.some((assetId) => assetId.includes("battery"));
