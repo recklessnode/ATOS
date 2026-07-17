@@ -33,7 +33,6 @@ class Target:
     must_fit_bed: bool = True
     split_group: str | None = None
     notes: str = ""
-    known_non_manifold_gap: bool = False
 
 
 def targets() -> list[Target]:
@@ -48,11 +47,11 @@ def targets() -> list[Target]:
     }
     items: list[Target] = [
         Target("S1 sled body", CAD_DIR / "s1_sled.scad", "s1_sled_body.stl", (322, 78, 24), must_fit_bed=False, split_group="s1_sled_body", notes="Full reference body; use split files for 220 mm beds."),
-        Target("S1 sled body front split", CAD_DIR / "s1_sled.scad", "s1_sled_body_front_split.stl", (174, 78, 24), {"build_part": "front"}, split_group="s1_sled_body", known_non_manifold_gap=True),
-        Target("S1 sled body rear split", CAD_DIR / "s1_sled.scad", "s1_sled_body_rear_split.stl", (174, 78, 24), {"build_part": "rear"}, split_group="s1_sled_body", known_non_manifold_gap=True),
+        Target("S1 sled body front split", CAD_DIR / "s1_sled.scad", "s1_sled_body_front_split.stl", (174, 78, 24), {"build_part": "front"}, split_group="s1_sled_body"),
+        Target("S1 sled body rear split", CAD_DIR / "s1_sled.scad", "s1_sled_body_rear_split.stl", (174, 78, 24), {"build_part": "rear"}, split_group="s1_sled_body"),
         Target("Interface plate", CAD_DIR / "s1_interface_plate.scad", "s1_interface_plate.stl", (242, 66, 10), must_fit_bed=False, split_group="interface_plate", notes="Full reference plate; use split files for 220 mm beds."),
-        Target("Interface plate front split", CAD_DIR / "s1_interface_plate.scad", "s1_interface_plate_front_split.stl", (134, 66, 10), {"build_part": "front"}, split_group="interface_plate", known_non_manifold_gap=True),
-        Target("Interface plate rear split", CAD_DIR / "s1_interface_plate.scad", "s1_interface_plate_rear_split.stl", (134, 66, 10), {"build_part": "rear"}, split_group="interface_plate", known_non_manifold_gap=True),
+        Target("Interface plate front split", CAD_DIR / "s1_interface_plate.scad", "s1_interface_plate_front_split.stl", (134, 66, 10), {"build_part": "front"}, split_group="interface_plate"),
+        Target("Interface plate rear split", CAD_DIR / "s1_interface_plate.scad", "s1_interface_plate_rear_split.stl", (134, 66, 10), {"build_part": "rear"}, split_group="interface_plate"),
         Target("Front coupler", CAD_DIR / "s1_coupler.scad", "s1_coupler_front.stl", (64, 22, 14), {"build_part": "front"}),
         Target("Rear coupler", CAD_DIR / "s1_coupler.scad", "s1_coupler_rear.stl", (64, 24, 14), {"build_part": "rear"}),
         Target("CG test fixture", CAD_DIR / "fixtures" / "cg_test_fixture.scad", "cg_test_fixture.stl", (216, 112, 24), notes="Preserves the 180 x 50 mm provisional support-node spacing."),
@@ -65,8 +64,8 @@ def targets() -> list[Target]:
         group = stem
         items.extend([
             Target(stem.replace("_", " ").title(), source, f"{stem}.stl", (242, 70, 74), must_fit_bed=False, split_group=group, notes="Full reference module; use split files for 220 mm beds."),
-            Target(f"{stem.replace('_', ' ').title()} front split", source, f"{stem}_front_split.stl", (134, 70, 74), {"build_part": "front"}, split_group=group, known_non_manifold_gap=True),
-            Target(f"{stem.replace('_', ' ').title()} rear split", source, f"{stem}_rear_split.stl", (134, 70, 74), {"build_part": "rear"}, split_group=group, known_non_manifold_gap=True),
+            Target(f"{stem.replace('_', ' ').title()} front split", source, f"{stem}_front_split.stl", (134, 70, 74), {"build_part": "front"}, split_group=group),
+            Target(f"{stem.replace('_', ' ').title()} rear split", source, f"{stem}_rear_split.stl", (134, 70, 74), {"build_part": "rear"}, split_group=group),
         ])
     return items
 
@@ -90,6 +89,43 @@ def render_target(target: Target) -> None:
         str(target.source),
     ]
     subprocess.run(command, cwd=ROOT, check=True)
+    if is_split_stl(target.output):
+        repair_split_stl(output)
+
+
+def is_split_stl(output: str) -> bool:
+    return output.endswith("_split.stl")
+
+
+def repair_split_stl(path: Path) -> None:
+    try:
+        import manifold3d  # type: ignore
+        import numpy as np  # type: ignore
+        import trimesh  # type: ignore
+    except ModuleNotFoundError as exc:
+        raise RuntimeError(
+            "Rendered split STL repair requires tools/cad/requirements.txt "
+            "dependencies, including trimesh and manifold3d."
+        ) from exc
+
+    mesh = trimesh.load_mesh(path, force="mesh")
+    manifold_mesh = manifold3d.Mesh(
+        np.asarray(mesh.vertices, dtype=np.float32),
+        np.asarray(mesh.faces, dtype=np.uint32),
+    )
+    manifold = manifold3d.Manifold(manifold_mesh)
+    if manifold.status() != manifold3d.Error.NoError or manifold.is_empty():
+        raise RuntimeError(f"manifold3d could not construct a solid from {path.name}: {manifold.status()}")
+
+    repaired_mesh = manifold.to_mesh()
+    repaired = trimesh.Trimesh(
+        vertices=np.asarray(repaired_mesh.vert_properties, dtype=np.float64)[:, :3],
+        faces=np.asarray(repaired_mesh.tri_verts, dtype=np.int64),
+        process=False,
+    )
+    if not repaired.is_watertight:
+        raise RuntimeError(f"manifold3d repair did not produce a watertight split STL for {path.name}")
+    repaired.export(path)
 
 
 @dataclass
@@ -189,9 +225,11 @@ def validate_targets(targets_to_check: Iterable[Target], render: bool) -> tuple[
             failures.append(f"{target.output} exceeds declared envelope {target.envelope_mm}: {format_bbox(info.bbox_mm)}")
         if target.must_fit_bed and not bed_ok:
             failures.append(f"{target.output} does not fit {BED_X_MM:.0f} x {BED_Y_MM:.0f} mm bed in current orientation")
-        if info.is_watertight is False:
+        if info.is_watertight is None:
+            failures.append(f"{target.output} could not be checked for watertightness because {info.parser} does not provide topology proof")
+        elif info.is_watertight is False:
             message = f"{target.output} is not watertight according to {info.parser}"
-            if target.known_non_manifold_gap:
+            if known_gap_allowed_for(target.output):
                 known_gaps.append(message)
             else:
                 failures.append(message)
@@ -199,9 +237,15 @@ def validate_targets(targets_to_check: Iterable[Target], render: bool) -> tuple[
     for group, values in split_fit.items():
         if not any(values):
             failures.append(f"No split or direct part in group {group} fits the declared print bed")
-    write_report(rows, failures, known_gaps)
+    interface_rows, interface_failures = validate_module_interface_fit()
+    failures.extend(interface_failures)
+    write_report(rows, failures, known_gaps, interface_rows)
     write_previews(all_targets)
     return rows, failures, known_gaps
+
+
+def known_gap_allowed_for(_output: str) -> bool:
+    return False
 
 
 def format_bbox(bbox: tuple[float, float, float]) -> str:
@@ -214,8 +258,6 @@ def report_row(target: Target, info: MeshInfo, envelope_ok: bool, bed_ok: bool) 
         watertight = "unknown"
     elif info.is_watertight:
         watertight = "yes"
-    elif target.known_non_manifold_gap:
-        watertight = "known non-manifold gap"
     else:
         watertight = "no"
     return (
@@ -225,7 +267,53 @@ def report_row(target: Target, info: MeshInfo, envelope_ok: bool, bed_ok: bool) 
     )
 
 
-def write_report(rows: list[str], failures: list[str], known_gaps: list[str]) -> None:
+def validate_module_interface_fit() -> tuple[list[str], list[str]]:
+    parameters_path = CAD_DIR / "s1_parameters.scad"
+    parameters_text = parameters_path.read_text(encoding="utf8")
+    expectations = [
+        ("s1_interface_plate.scad", CAD_DIR / "s1_interface_plate.scad", "module_interface_cutouts("),
+        *[
+            (path.name, path, "module_interface_base(")
+            for path in sorted((CAD_DIR / "modules").glob("*.scad"))
+        ],
+    ]
+    rows: list[str] = []
+    failures: list[str] = []
+    for label, path, helper in expectations:
+        text = path.read_text(encoding="utf8")
+        ok = helper in text
+        if not ok:
+            failures.append(f"{label} does not use shared S1 interface helper {helper}")
+        rows.append(
+            f"| {label} | {helper.rstrip('(')} | {'yes' if ok else 'no'} | "
+            f"four mount/latch stations at X +/-{90} mm and Y +/-{24} mm |"
+        )
+    helper_checks = [
+        ("s1_parameters.scad", "module_interface_cutouts", module_contains_call(parameters_text, "module_interface_cutouts", "mount_pin_holes(") and module_contains_call(parameters_text, "module_interface_cutouts", "latch_slots("), "shared helper includes mount-pin holes and latch slots"),
+        ("s1_parameters.scad", "module_interface_base", module_contains_call(parameters_text, "module_interface_base", "module_interface_cutouts("), "shared module base subtracts common interface cutouts"),
+    ]
+    for label, helper, ok, geometry in helper_checks:
+        if not ok:
+            failures.append(f"{label} helper {helper} does not preserve shared S1 interface geometry")
+        rows.append(f"| {label} | {helper} | {'yes' if ok else 'no'} | {geometry} |")
+    return rows, failures
+
+
+def module_contains_call(text: str, module_name: str, call: str) -> bool:
+    start = text.find(f"module {module_name}")
+    if start == -1:
+        return False
+    next_module = text.find("\nmodule ", start + 1)
+    body = text[start:] if next_module == -1 else text[start:next_module]
+    return call in body
+
+
+def write_report(
+    rows: list[str],
+    failures: list[str],
+    known_gaps: list[str],
+    interface_rows: list[str],
+) -> None:
     status = "FAIL" if failures else "CONDITIONAL PASS" if known_gaps else "PASS"
     REPORT_PATH.write_text(
         "\n".join([
@@ -253,11 +341,18 @@ def write_report(rows: list[str], failures: list[str], known_gaps: list[str]) ->
             f"- Generated {PREVIEW_DIR.relative_to(ROOT)}/index.svg as the contact sheet for major S1 parts.",
             f"- Generated individual STL-derived SVG previews in {PREVIEW_DIR.relative_to(ROOT)}/.",
             "",
-            "## Known mesh validation gap",
+            "## Module interface fit validation",
             "",
-            "- The non-watertight split files above are known gaps in the current OpenSCAD boolean-clipping approach. They are not reported as fully passing watertight proof.",
-            "- Full-size reference STLs remain watertight and are the canonical visual/envelope geometry. Common-bed split files remain included as provisional print-layout aids because they fit the 220 x 220 mm envelope but require repair or redesign before claiming manifold proof.",
-            "- To turn this conditional result into a full PASS, either repair the affected split STLs by hand in a mesh/CAD repair tool, redesign the split parts as native closed half-solids rather than post-clipped solids, or use a more capable CAD/mesh pipeline and then remove the known-gap flags.",
+            "| Source | Shared helper | Present | Interface geometry |",
+            "|---|---|---|---|",
+            *interface_rows,
+            "",
+            "Every reference module base and the standalone interface plate must use the shared S1 interface helper so the same four mount-pin holes and latch slots are present at the common attachment stations.",
+            "",
+            "## Split mesh validation",
+            "",
+            "- Split STLs are rendered from OpenSCAD and then normalized through `manifold3d` to remove split-plane duplicate-face artifacts before validation.",
+            "- Validation fails by default if any STL lacks watertight proof. `--allow-known-gaps` is reserved for diagnostic runs and is not used for acceptance.",
             "",
             "## Prototype limitation",
             "",
@@ -456,11 +551,21 @@ def fit_points(
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--no-render", action="store_true", help="Validate existing STL files without rerendering OpenSCAD.")
+    parser.add_argument(
+        "--allow-known-gaps",
+        action="store_true",
+        help="Permit documented known mesh gaps for diagnostic runs. Acceptance validation must not use this flag.",
+    )
     args = parser.parse_args()
     _rows, failures, known_gaps = validate_targets(targets(), render=not args.no_render)
     if failures:
         for failure in failures:
             print(f"FAIL: {failure}")
+        return 1
+    if known_gaps and not args.allow_known_gaps:
+        for gap in known_gaps:
+            print(f"KNOWN-GAP: {gap}")
+        print("FAIL: known mesh gaps require --allow-known-gaps and do not satisfy acceptance validation.")
         return 1
     for gap in known_gaps:
         print(f"KNOWN-GAP: {gap}")

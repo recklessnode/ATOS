@@ -1,33 +1,19 @@
-# S1 Known Mesh Validation Gaps
+# S1 Mesh Validation Gap History
 
-The current S1 printable kit has a known mesh-validation gap in several common-bed split STL files. `trimesh` reports those split files as non-watertight after OpenSCAD boolean clipping. The validator records those findings as known gaps rather than claiming full watertight proof.
+The S1 printable kit currently has no active known mesh-gap waiver. The generated `cad/s1/asset-report.md` must report `PASS`, and every STL must report watertight when validated with the dependencies in `tools/cad/requirements.txt`.
 
-## Why This Happens
+## Resolved Split-STL Gap
 
-The full reference parts are generated as closed solids and validate as watertight. The common-bed split files are produced by clipping those solids into front/rear halves so they fit a 220 x 220 mm printer bed. That split operation can leave non-manifold edges along the cut surface in the exported STL, even when the opposite half and the full reference part remain simple solids.
+An earlier OpenSCAD split workflow produced several common-bed front/rear split STLs with duplicate split-plane faces. `trimesh` reported those clipped exports as non-manifold even though the corresponding full reference parts were watertight.
 
-This is not a physics or envelope problem. It is a mesh-production limitation in the current OpenSCAD split workflow.
+The current workflow keeps the OpenSCAD source for the provisional parts, then normalizes split STL exports through `manifold3d` before validation. The validator fails by default if any STL lacks watertight proof. The `--allow-known-gaps` flag is reserved for diagnostic investigations and must not be used for acceptance validation.
 
-## Current Acceptance Position
+## Future Gap Policy
 
-The split files remain in the draft PR because they are useful prototype print-layout aids and they satisfy file presence, renderability, envelope, and bed-fit checks. They are not treated as proven watertight manufacturing assets.
+If a future CAD change reintroduces a non-watertight STL, do not hide it as a passing asset. Either:
 
-This gap should not be hidden as a full PASS. The generated `cad/s1/asset-report.md` reports `CONDITIONAL PASS` when only these known split mesh gaps are present.
+- repair or regenerate the STL so validation returns full `PASS`;
+- redesign the affected part as a native closed solid instead of clipping a completed solid;
+- document a temporary diagnostic gap, require `--allow-known-gaps` for that diagnostic run, and keep the PR in draft until acceptance validation passes without the flag.
 
-## What Is Needed For Full PASS
-
-Any one of these paths should be sufficient:
-
-- Repair the affected split STLs by hand in a slicer or mesh-repair tool, commit the repaired assets, and rerun validation with no known-gap flags.
-- Redesign the split CAD as native closed front/rear half-solids rather than clipping completed solids.
-- Move the split-generation workflow to a CAD/mesh toolchain that guarantees manifold output for split solids.
-- Use additional LLM/CAD effort, potentially with a stronger geometry-capable model, to refactor the OpenSCAD split logic into manifold half-part construction.
-
-After that, remove the known-gap flags from `tools/cad/s1_generate_and_validate.py`, rerun:
-
-```bash
-python3 tools/cad/s1_generate_and_validate.py
-python3 tools/cad/s1_generate_and_validate.py --no-render
-```
-
-and require every split STL to report watertight before changing the report status from `CONDITIONAL PASS` to `PASS`.
+Known-gap documentation can explain missing LLM effort, a geometry-tooling limitation, or a need for manual CAD repair, but it does not satisfy the printable-kit acceptance contract by itself.

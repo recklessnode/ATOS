@@ -12,8 +12,7 @@ module elevated_ballast_tower() {
 module ballast_test_module_full() {
   union() {
     difference() {
-      rounded_box([s1_module_length, s1_module_width, s1_module_interface_height], 6);
-      mount_pin_holes(height = 14);
+      module_interface_base(cutout_height = 14);
       ballast_pocket_positions()
         translate([0, 0, -1])
           rounded_box([s1_ballast_pocket_length, s1_ballast_pocket_width, s1_module_interface_height + 2], 3);

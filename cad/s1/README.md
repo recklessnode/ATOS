@@ -8,9 +8,9 @@ The parts are fit, appearance, packaging, route-clearance, and center-of-mass ex
 
 - OpenSCAD 2021.01 or newer
 - Python 3.11 or newer
-- Optional Python mesh tooling from `tools/cad/requirements.txt` for manifold, volume, and bounding-box validation
+- Python mesh tooling from `tools/cad/requirements.txt` for split-STL repair, manifold validation, volume checks, and bounding-box validation
 
-Install the optional validation dependency with:
+Install the validation dependencies with:
 
 ```bash
 python3 -m pip install -r tools/cad/requirements.txt
@@ -39,9 +39,9 @@ Generate all expected STL files and the asset report:
 python3 tools/cad/s1_generate_and_validate.py
 ```
 
-The script renders OpenSCAD targets into `cad/s1/stl/`, checks expected files, reports bounding boxes and volume, checks mesh watertightness when `trimesh` is installed, confirms declared envelopes, verifies that full-size parts have split alternatives that fit a 220 x 220 mm bed, and writes STL-derived SVG previews to `cad/s1/previews/`.
+The script renders OpenSCAD targets into `cad/s1/stl/`, repairs split-STL duplicate-face artifacts through `manifold3d`, checks expected files, reports bounding boxes and volume, checks mesh watertightness, confirms declared envelopes, verifies that full-size parts have split alternatives that fit a 220 x 220 mm bed, validates the common module interface helpers, and writes STL-derived SVG previews to `cad/s1/previews/`.
 
-The current OpenSCAD split workflow has a known non-manifold edge gap in several clipped front/rear split STLs. The validator does not claim those files are fully watertight. It reports a `CONDITIONAL PASS` when those known split findings are the only mesh issues. See `known-mesh-gaps.md` for why this is not treated as a complete watertight proof and what work is required to reach full `PASS`.
+Acceptance validation now requires every generated STL, including every common-bed split STL, to provide watertight proof. Diagnostic known-gap handling remains available in the validator for future investigations, but no active known-gap waiver is used for the current asset report. See `known-mesh-gaps.md` for the resolved mesh-gap history and expectations for future CAD changes.
 
 ## Print recommendations
 
@@ -60,7 +60,7 @@ These recommendations support dummy-model testing only. Do not infer production 
 - Sled body: print split front/rear halves flat on the deck bottom for common 220 x 220 mm beds.
 - Interface plate: print split front/rear halves flat; keep mating faces non-cosmetic.
 - Enclosed pods: print split halves flat; keep alignment keys clean and deburred.
-- Split alignment keys: print flat and bond across the underside seam after dry fitting the flat split faces.
+- Split alignment keys: print flat and bond across the underside seam after dry fitting the flat split faces and underside receiver sockets.
 - Couplers: print flat with the pivot axis vertical; inspect pivot holes after printing.
 - CG fixture: print flat on the base.
 - Coupler-angle gauge and clearance gauge: print flat.
@@ -69,7 +69,7 @@ These recommendations support dummy-model testing only. Do not infer production 
 
 - Dry-fit every split key before adhesive or fastener use.
 - Keep split-plane mating faces visible for inspection.
-- Bond split halves only after the loose alignment keys align cleanly across the underside seam.
+- Bond split halves only after the loose alignment keys seat cleanly in the underside receiver sockets across the seam.
 - Do not use any electrical connector as an alignment or retention member.
 - Verify four attachment stations seat before adding ballast.
 - Coupler parts are sacrificial low-speed dummy parts.

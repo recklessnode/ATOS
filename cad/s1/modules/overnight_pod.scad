@@ -5,8 +5,7 @@ build_part = "full";
 module overnight_pod_full() {
   union() {
     difference() {
-      rounded_box([s1_module_length, s1_module_width, s1_module_interface_height], 6);
-      mount_pin_holes(height = 14);
+      module_interface_base(cutout_height = 14);
     }
     translate([0, 0, s1_module_interface_height - 0.3])
       aerodynamic_pod_shell(s1_module_length, s1_module_width, 52, nose = 22, roof_inset = 10, radius = 8);

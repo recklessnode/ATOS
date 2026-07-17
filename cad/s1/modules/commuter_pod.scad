@@ -19,10 +19,7 @@ module commuter_pod_full() {
 }
 
 module s1_interface_plate_full_placeholder() {
-  difference() {
-    rounded_box([s1_module_length, s1_module_width, s1_module_interface_height], 6);
-    mount_pin_holes(height = 14);
-  }
+  module_interface_base(cutout_height = 14);
 }
 
 module commuter_pod_part() {

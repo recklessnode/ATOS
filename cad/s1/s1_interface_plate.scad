@@ -13,8 +13,7 @@ module s1_interface_plate_full() {
         centerline_marks(s1_module_length - 10, s1_module_width - 8, 0, height = 1.0);
       cg_marker(s1_module_interface_height + 1.2, 18);
     }
-    mount_pin_holes(height = 18);
-    latch_slots(height = 12);
+    module_interface_cutouts(height = 18);
   }
 }
 

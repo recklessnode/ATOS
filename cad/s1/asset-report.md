@@ -9,63 +9,70 @@ The report validates prototype CAD assets for file presence, OpenSCAD renderabil
 | STL | Target | Bounding box XYZ mm | Volume mm3 | Triangles | Watertight | Envelope OK | Bed fit | Notes |
 |---|---|---:|---:|---:|---|---|---|---|
 | s1_sled_body.stl | S1 sled body | 320.00 x 77.00 x 22.20 | 338306.9 | 3732 | yes | yes | no | Full reference body; use split files for 220 mm beds. |
-| s1_sled_body_front_split.stl | S1 sled body front split | 160.00 x 77.00 x 22.20 | 169121.0 | 1904 | known non-manifold gap | yes | yes |  |
-| s1_sled_body_rear_split.stl | S1 sled body rear split | 160.00 x 77.00 x 22.20 | 169185.9 | 1928 | yes | yes | yes |  |
+| s1_sled_body_front_split.stl | S1 sled body front split | 160.00 x 77.00 x 22.20 | 167279.0 | 2108 | yes | yes | yes |  |
+| s1_sled_body_rear_split.stl | S1 sled body rear split | 160.00 x 77.00 x 22.20 | 167343.8 | 2152 | yes | yes | yes |  |
 | s1_interface_plate.stl | Interface plate | 240.00 x 64.00 x 8.00 | 74961.7 | 1188 | yes | yes | no | Full reference plate; use split files for 220 mm beds. |
-| s1_interface_plate_front_split.stl | Interface plate front split | 120.00 x 64.00 x 8.00 | 37445.4 | 596 | known non-manifold gap | yes | yes |  |
-| s1_interface_plate_rear_split.stl | Interface plate rear split | 120.00 x 64.00 x 8.00 | 37516.3 | 620 | yes | yes | yes |  |
+| s1_interface_plate_front_split.stl | Interface plate front split | 120.00 x 64.00 x 8.00 | 36053.6 | 800 | yes | yes | yes |  |
+| s1_interface_plate_rear_split.stl | Interface plate rear split | 120.00 x 64.00 x 8.00 | 36124.6 | 844 | yes | yes | yes |  |
 | s1_coupler_front.stl | Front coupler | 55.00 x 18.00 x 9.20 | 4043.4 | 696 | yes | yes | yes |  |
 | s1_coupler_rear.stl | Rear coupler | 54.00 x 20.00 x 9.00 | 4039.2 | 656 | yes | yes | yes |  |
 | cg_test_fixture.stl | CG test fixture | 214.00 x 104.00 x 16.00 | 42014.7 | 1460 | yes | yes | yes | Preserves the 180 x 50 mm provisional support-node spacing. |
 | coupler_angle_gauge.stl | Coupler angle gauge | 169.32 x 106.74 x 8.00 | 24335.1 | 290 | yes | yes | yes |  |
 | route_clearance_gauge.stl | Route clearance gauge | 160.00 x 116.00 x 36.00 | 64652.3 | 544 | yes | yes | yes |  |
 | split_alignment_keys.stl | Split alignment keys | 44.00 x 23.60 x 4.60 | 3064.8 | 280 | yes | yes | yes | Loose bridge keys bond across flat front/rear split seams. |
-| commuter_pod.stl | Commuter Pod | 240.00 x 64.00 x 52.40 | 605547.4 | 912 | yes | yes | no | Full reference module; use split files for 220 mm beds. |
-| commuter_pod_front_split.stl | Commuter Pod front split | 120.00 x 64.00 x 52.40 | 302767.6 | 464 | known non-manifold gap | yes | yes |  |
-| commuter_pod_rear_split.stl | Commuter Pod rear split | 120.00 x 64.00 x 52.40 | 302779.9 | 472 | yes | yes | yes |  |
-| overnight_pod.stl | Overnight Pod | 240.00 x 64.00 x 60.40 | 747422.0 | 912 | yes | yes | no | Full reference module; use split files for 220 mm beds. |
-| overnight_pod_front_split.stl | Overnight Pod front split | 120.00 x 64.00 x 60.40 | 373704.9 | 464 | known non-manifold gap | yes | yes |  |
-| overnight_pod_rear_split.stl | Overnight Pod rear split | 120.00 x 64.00 x 60.40 | 373717.2 | 472 | yes | yes | yes |  |
-| battery_pod.stl | Battery Pod | 240.00 x 64.00 x 47.40 | 583469.4 | 912 | yes | yes | no | Full reference module; use split files for 220 mm beds. |
-| battery_pod_front_split.stl | Battery Pod front split | 120.00 x 64.00 x 47.40 | 291728.6 | 464 | known non-manifold gap | yes | yes |  |
-| battery_pod_rear_split.stl | Battery Pod rear split | 120.00 x 64.00 x 47.40 | 291740.8 | 472 | yes | yes | yes |  |
-| container_40_adapter.stl | Container 40 Adapter | 240.00 x 64.00 x 48.40 | 493276.7 | 1140 | yes | yes | no | Full reference module; use split files for 220 mm beds. |
-| container_40_adapter_front_split.stl | Container 40 Adapter front split | 120.00 x 64.00 x 48.40 | 246721.8 | 596 | known non-manifold gap | yes | yes |  |
-| container_40_adapter_rear_split.stl | Container 40 Adapter rear split | 120.00 x 64.00 x 48.40 | 246554.9 | 592 | known non-manifold gap | yes | yes |  |
-| container_20_twin_adapter.stl | Container 20 Twin Adapter | 240.00 x 64.00 x 49.00 | 470999.0 | 1344 | yes | yes | no | Full reference module; use split files for 220 mm beds. |
-| container_20_twin_adapter_front_split.stl | Container 20 Twin Adapter front split | 120.00 x 64.00 x 49.00 | 235499.5 | 692 | yes | yes | yes |  |
-| container_20_twin_adapter_rear_split.stl | Container 20 Twin Adapter rear split | 120.00 x 64.00 x 49.00 | 235499.5 | 692 | yes | yes | yes |  |
-| open_bin.stl | Open Bin | 240.00 x 64.00 x 48.40 | 284322.5 | 1304 | yes | yes | no | Full reference module; use split files for 220 mm beds. |
-| open_bin_front_split.stl | Open Bin front split | 120.00 x 64.00 x 48.40 | 142155.1 | 672 | known non-manifold gap | yes | yes |  |
-| open_bin_rear_split.stl | Open Bin rear split | 120.00 x 64.00 x 48.40 | 142167.4 | 680 | yes | yes | yes |  |
-| ballast_test_module.stl | Ballast Test Module | 240.00 x 64.00 x 63.40 | 138208.2 | 2392 | yes | yes | no | Full reference module; use split files for 220 mm beds. |
-| ballast_test_module_front_split.stl | Ballast Test Module front split | 120.00 x 64.00 x 63.40 | 69082.9 | 1224 | known non-manifold gap | yes | yes |  |
-| ballast_test_module_rear_split.stl | Ballast Test Module rear split | 120.00 x 64.00 x 63.40 | 69125.4 | 1248 | yes | yes | yes |  |
+| commuter_pod.stl | Commuter Pod | 240.00 x 64.00 x 52.40 | 603870.6 | 976 | yes | yes | no | Full reference module; use split files for 220 mm beds. |
+| commuter_pod_front_split.stl | Commuter Pod front split | 120.00 x 64.00 x 52.40 | 300494.2 | 710 | yes | yes | yes |  |
+| commuter_pod_rear_split.stl | Commuter Pod rear split | 120.00 x 64.00 x 52.40 | 300508.8 | 728 | yes | yes | yes |  |
+| overnight_pod.stl | Overnight Pod | 240.00 x 64.00 x 60.40 | 745745.2 | 976 | yes | yes | no | Full reference module; use split files for 220 mm beds. |
+| overnight_pod_front_split.stl | Overnight Pod front split | 120.00 x 64.00 x 60.40 | 371431.5 | 710 | yes | yes | yes |  |
+| overnight_pod_rear_split.stl | Overnight Pod rear split | 120.00 x 64.00 x 60.40 | 371446.1 | 728 | yes | yes | yes |  |
+| battery_pod.stl | Battery Pod | 240.00 x 64.00 x 47.40 | 581792.6 | 976 | yes | yes | no | Full reference module; use split files for 220 mm beds. |
+| battery_pod_front_split.stl | Battery Pod front split | 120.00 x 64.00 x 47.40 | 289455.2 | 710 | yes | yes | yes |  |
+| battery_pod_rear_split.stl | Battery Pod rear split | 120.00 x 64.00 x 47.40 | 289469.7 | 728 | yes | yes | yes |  |
+| container_40_adapter.stl | Container 40 Adapter | 240.00 x 64.00 x 48.40 | 491596.5 | 1252 | yes | yes | no | Full reference module; use split files for 220 mm beds. |
+| container_40_adapter_front_split.stl | Container 40 Adapter front split | 120.00 x 64.00 x 48.40 | 244449.0 | 868 | yes | yes | yes |  |
+| container_40_adapter_rear_split.stl | Container 40 Adapter rear split | 120.00 x 64.00 x 48.40 | 244282.1 | 862 | yes | yes | yes |  |
+| container_20_twin_adapter.stl | Container 20 Twin Adapter | 240.00 x 64.00 x 49.00 | 469318.8 | 1456 | yes | yes | no | Full reference module; use split files for 220 mm beds. |
+| container_20_twin_adapter_front_split.stl | Container 20 Twin Adapter front split | 120.00 x 64.00 x 49.00 | 233226.7 | 972 | yes | yes | yes |  |
+| container_20_twin_adapter_rear_split.stl | Container 20 Twin Adapter rear split | 120.00 x 64.00 x 49.00 | 233226.7 | 972 | yes | yes | yes |  |
+| open_bin.stl | Open Bin | 240.00 x 64.00 x 48.40 | 282645.7 | 1368 | yes | yes | no | Full reference module; use split files for 220 mm beds. |
+| open_bin_front_split.stl | Open Bin front split | 120.00 x 64.00 x 48.40 | 139881.8 | 918 | yes | yes | yes |  |
+| open_bin_rear_split.stl | Open Bin rear split | 120.00 x 64.00 x 48.40 | 139896.3 | 936 | yes | yes | yes |  |
+| ballast_test_module.stl | Ballast Test Module | 240.00 x 64.00 x 63.40 | 137267.0 | 2280 | yes | yes | no | Full reference module; use split files for 220 mm beds. |
+| ballast_test_module_front_split.stl | Ballast Test Module front split | 120.00 x 64.00 x 63.40 | 67179.5 | 1374 | yes | yes | yes |  |
+| ballast_test_module_rear_split.stl | Ballast Test Module rear split | 120.00 x 64.00 x 63.40 | 67222.1 | 1416 | yes | yes | yes |  |
 
 ## Validation status
 
-CONDITIONAL PASS
+PASS
 
-- Known mesh gap: s1_sled_body_front_split.stl is not watertight according to trimesh
-- Known mesh gap: s1_interface_plate_front_split.stl is not watertight according to trimesh
-- Known mesh gap: commuter_pod_front_split.stl is not watertight according to trimesh
-- Known mesh gap: overnight_pod_front_split.stl is not watertight according to trimesh
-- Known mesh gap: battery_pod_front_split.stl is not watertight according to trimesh
-- Known mesh gap: container_40_adapter_front_split.stl is not watertight according to trimesh
-- Known mesh gap: container_40_adapter_rear_split.stl is not watertight according to trimesh
-- Known mesh gap: open_bin_front_split.stl is not watertight according to trimesh
-- Known mesh gap: ballast_test_module_front_split.stl is not watertight according to trimesh
 
 ## Preview status
 
 - Generated cad/s1/previews/index.svg as the contact sheet for major S1 parts.
 - Generated individual STL-derived SVG previews in cad/s1/previews/.
 
-## Known mesh validation gap
+## Module interface fit validation
 
-- The non-watertight split files above are known gaps in the current OpenSCAD boolean-clipping approach. They are not reported as fully passing watertight proof.
-- Full-size reference STLs remain watertight and are the canonical visual/envelope geometry. Common-bed split files remain included as provisional print-layout aids because they fit the 220 x 220 mm envelope but require repair or redesign before claiming manifold proof.
-- To turn this conditional result into a full PASS, either repair the affected split STLs by hand in a mesh/CAD repair tool, redesign the split parts as native closed half-solids rather than post-clipped solids, or use a more capable CAD/mesh pipeline and then remove the known-gap flags.
+| Source | Shared helper | Present | Interface geometry |
+|---|---|---|---|
+| s1_interface_plate.scad | module_interface_cutouts | yes | four mount/latch stations at X +/-90 mm and Y +/-24 mm |
+| ballast_test_module.scad | module_interface_base | yes | four mount/latch stations at X +/-90 mm and Y +/-24 mm |
+| battery_pod.scad | module_interface_base | yes | four mount/latch stations at X +/-90 mm and Y +/-24 mm |
+| commuter_pod.scad | module_interface_base | yes | four mount/latch stations at X +/-90 mm and Y +/-24 mm |
+| container_20_twin_adapter.scad | module_interface_base | yes | four mount/latch stations at X +/-90 mm and Y +/-24 mm |
+| container_40_adapter.scad | module_interface_base | yes | four mount/latch stations at X +/-90 mm and Y +/-24 mm |
+| open_bin.scad | module_interface_base | yes | four mount/latch stations at X +/-90 mm and Y +/-24 mm |
+| overnight_pod.scad | module_interface_base | yes | four mount/latch stations at X +/-90 mm and Y +/-24 mm |
+| s1_parameters.scad | module_interface_cutouts | yes | shared helper includes mount-pin holes and latch slots |
+| s1_parameters.scad | module_interface_base | yes | shared module base subtracts common interface cutouts |
+
+Every reference module base and the standalone interface plate must use the shared S1 interface helper so the same four mount-pin holes and latch slots are present at the common attachment stations.
+
+## Split mesh validation
+
+- Split STLs are rendered from OpenSCAD and then normalized through `manifold3d` to remove split-plane duplicate-face artifacts before validation.
+- Validation fails by default if any STL lacks watertight proof. `--allow-known-gaps` is reserved for diagnostic runs and is not used for acceptance.
 
 ## Prototype limitation
 

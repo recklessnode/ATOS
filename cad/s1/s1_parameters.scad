@@ -99,6 +99,18 @@ module latch_slots(height = 20, clearance = s1_mount_clearance) {
       rounded_box([s1_latch_slot_length + clearance, s1_latch_slot_width + clearance, height], 1.5);
 }
 
+module module_interface_cutouts(height = 20, clearance = s1_mount_clearance) {
+  mount_pin_holes(height = height, clearance = clearance);
+  latch_slots(height = height, clearance = clearance);
+}
+
+module module_interface_base(height = s1_module_interface_height, radius = 6, cutout_height = 14) {
+  difference() {
+    rounded_box([s1_module_length, s1_module_width, height], radius);
+    module_interface_cutouts(height = cutout_height);
+  }
+}
+
 module module_interface_underside(height = 4) {
   module_attachment_positions()
     cylinder(h = height, r = s1_mount_pin_diameter / 2, center = false);
@@ -133,8 +145,13 @@ module split_alignment_receiver(z = 2) {
 }
 
 module split_alignment_sockets(side = "front", z = 0.4) {
-  // Split halves use flat, non-cosmetic joining faces for watertight STL output.
-  // Loose alignment keys are printed separately and bonded across the underside seam.
+  socket_depth = min(s1_split_key_height, 3.0 + z);
+  socket_length = s1_split_key_length + 10;
+  socket_width = s1_split_key_width + 2 * s1_printer_tolerance;
+  x_center = side == "rear" ? -socket_length / 2 + 0.4 : socket_length / 2 - 0.4;
+  for (y = [-18, 18])
+    translate([x_center, y, -0.05])
+      rounded_box([socket_length, socket_width, socket_depth + 0.05], 1.1);
 }
 
 module loose_alignment_keys() {
