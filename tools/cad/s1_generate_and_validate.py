@@ -7,20 +7,84 @@ import argparse
 import html
 import json
 import math
+import re
 import struct
 import subprocess
+import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Iterable
+from xml.etree import ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[2]
 CAD_DIR = ROOT / "cad" / "s1"
+GENERATED_DIR = CAD_DIR / "generated"
 STL_DIR = CAD_DIR / "stl"
 REPORT_PATH = CAD_DIR / "asset-report.md"
 PREVIEW_DIR = CAD_DIR / "previews"
+THREE_MF_DIR = CAD_DIR / "3mf"
+MANIFEST_PATH = CAD_DIR / "asset-manifest.json"
 BED_X_MM = 220.0
 BED_Y_MM = 220.0
+H2C_USABLE_AREAS_MM = {
+    "single": (305.0, 320.0),
+    "dual": (300.0, 320.0),
+}
+ACTIVE_H2C_NOZZLE_MODE = "dual"
+H2C_PART_SPACING_MM = 6.0
 TOLERANCE_MM = 0.65
+BASELINE_RATIO = 87.1
+
+
+@dataclass(frozen=True)
+class ScaleProfile:
+    slug: str
+    label: str
+    ratio: float
+    primary_bed: str
+    commit_assets: bool = False
+
+
+PROFILES: dict[str, ScaleProfile] = {
+    "n": ScaleProfile("n-1-160", "N scale 1:160", 160.0, "220"),
+    "ho": ScaleProfile("ho-1-87", "HO scale 1:87.1", BASELINE_RATIO, "220", commit_assets=True),
+    "o": ScaleProfile("o-1-48", "O scale 1:48", 48.0, "h2c", commit_assets=True),
+}
+ACTIVE_PROFILE = PROFILES["ho"]
+
+
+def scale_mm(ho_mm: float, profile: ScaleProfile | None = None) -> float:
+    selected = ACTIVE_PROFILE if profile is None else profile
+    return ho_mm * BASELINE_RATIO / selected.ratio
+
+
+def set_output_paths(profile: ScaleProfile, generated: bool) -> None:
+    global ACTIVE_PROFILE, STL_DIR, REPORT_PATH, PREVIEW_DIR, THREE_MF_DIR, MANIFEST_PATH
+    ACTIVE_PROFILE = profile
+    if generated:
+        root = GENERATED_DIR / profile.slug
+        STL_DIR = root / "stl"
+        REPORT_PATH = root / "asset-report.md"
+        PREVIEW_DIR = root / "previews"
+        THREE_MF_DIR = root / "3mf"
+        MANIFEST_PATH = root / "asset-manifest.json"
+    else:
+        STL_DIR = CAD_DIR / "stl"
+        REPORT_PATH = CAD_DIR / "asset-report.md"
+        PREVIEW_DIR = CAD_DIR / "previews"
+        THREE_MF_DIR = CAD_DIR / "3mf"
+        MANIFEST_PATH = CAD_DIR / "asset-manifest.json"
+
+
+def h2c_usable_area_mm() -> tuple[float, float]:
+    return H2C_USABLE_AREAS_MM[ACTIVE_H2C_NOZZLE_MODE]
+
+
+def display_path(path: Path) -> str:
+    try:
+        return str(path.relative_to(ROOT))
+    except ValueError:
+        return str(path)
 
 
 @dataclass(frozen=True)
@@ -29,10 +93,33 @@ class Target:
     source: Path
     output: str
     envelope_mm: tuple[float, float, float]
-    defines: dict[str, str] = field(default_factory=dict)
+    defines: dict[str, object] = field(default_factory=dict)
     must_fit_bed: bool = True
+    must_fit_h2c: bool = True
     split_group: str | None = None
     notes: str = ""
+
+
+@dataclass(frozen=True)
+class PrintPart:
+    output: str
+    name: str
+
+
+@dataclass(frozen=True)
+class PrintProject:
+    filename: str
+    title: str
+    parts: tuple[PrintPart, ...]
+    notes: str
+
+
+@dataclass(frozen=True)
+class PackedObject:
+    part: PrintPart
+    mesh: object
+    placement: tuple[float, float, float]
+    rotation_deg: int
 
 
 def targets() -> list[Target]:
@@ -45,35 +132,72 @@ def targets() -> list[Target]:
         "open_bin": "open_bin.scad",
         "ballast_test_module": "ballast_test_module.scad",
     }
+    module_envelopes_ho = {
+        "commuter_pod": (180, 40, 38.6),
+        "overnight_pod": (180, 40, 44.6),
+        "battery_pod": (180, 40, 36.6),
+        "container_40_adapter": (180, 40, 9.5),
+        "container_20_twin_adapter": (180, 40, 9.5),
+        "open_bin": (180, 40, 36.6),
+        "ballast_test_module": (180, 40, 59.4),
+    }
+    profile = ACTIVE_PROFILE
+    full_sled_envelope = (scale_mm(300), scale_mm(48), scale_mm(17) + 10)
+    split_sled_envelope = (scale_mm(150), scale_mm(48), scale_mm(17) + 10)
+    interface_width_envelope = max(scale_mm(40) + 2, 28)
+    interface_envelope = (scale_mm(180), interface_width_envelope, 9)
+    interface_split_envelope = (scale_mm(90), interface_width_envelope, 9)
+    cg_fixture_envelope = (max(scale_mm(210), 132), max(scale_mm(84), 72), 24)
+    clearance_envelope = (max(scale_mm(130), 132), max(scale_mm(103), 106), scale_mm(69.45) + 8)
     items: list[Target] = [
-        Target("S1 sled body", CAD_DIR / "s1_sled.scad", "s1_sled_body.stl", (322, 78, 24), must_fit_bed=False, split_group="s1_sled_body", notes="Full reference body; use split files for 220 mm beds."),
-        Target("S1 sled body front split", CAD_DIR / "s1_sled.scad", "s1_sled_body_front_split.stl", (174, 78, 24), {"build_part": "front"}, split_group="s1_sled_body"),
-        Target("S1 sled body rear split", CAD_DIR / "s1_sled.scad", "s1_sled_body_rear_split.stl", (174, 78, 24), {"build_part": "rear"}, split_group="s1_sled_body"),
-        Target("Interface plate", CAD_DIR / "s1_interface_plate.scad", "s1_interface_plate.stl", (242, 66, 10), must_fit_bed=False, split_group="interface_plate", notes="Full reference plate; use split files for 220 mm beds."),
-        Target("Interface plate front split", CAD_DIR / "s1_interface_plate.scad", "s1_interface_plate_front_split.stl", (134, 66, 10), {"build_part": "front"}, split_group="interface_plate"),
-        Target("Interface plate rear split", CAD_DIR / "s1_interface_plate.scad", "s1_interface_plate_rear_split.stl", (134, 66, 10), {"build_part": "rear"}, split_group="interface_plate"),
-        Target("Front coupler", CAD_DIR / "s1_coupler.scad", "s1_coupler_front.stl", (64, 22, 14), {"build_part": "front"}),
-        Target("Rear coupler", CAD_DIR / "s1_coupler.scad", "s1_coupler_rear.stl", (64, 24, 14), {"build_part": "rear"}),
-        Target("CG test fixture", CAD_DIR / "fixtures" / "cg_test_fixture.scad", "cg_test_fixture.stl", (216, 112, 24), notes="Preserves the 180 x 50 mm provisional support-node spacing."),
+        Target("S1 sled body", CAD_DIR / "s1_sled.scad", "s1_sled_body.stl", full_sled_envelope, must_fit_bed=False, must_fit_h2c=fits_h2c_envelope(full_sled_envelope), split_group="s1_sled_body", notes="Printed sled body; length over coupler faces is validated as an assembly dimension."),
+        Target("S1 sled body front split", CAD_DIR / "s1_sled.scad", "s1_sled_body_front_split.stl", split_sled_envelope, {"build_part": "front"}, must_fit_bed=profile.primary_bed == "h2c" or fits_220_envelope(split_sled_envelope), split_group="s1_sled_body"),
+        Target("S1 sled body rear split", CAD_DIR / "s1_sled.scad", "s1_sled_body_rear_split.stl", split_sled_envelope, {"build_part": "rear"}, must_fit_bed=profile.primary_bed == "h2c" or fits_220_envelope(split_sled_envelope), split_group="s1_sled_body"),
+        Target("Interface plate", CAD_DIR / "s1_interface_plate.scad", "s1_interface_plate.stl", interface_envelope, must_fit_bed=fits_primary_envelope(interface_envelope), must_fit_h2c=fits_h2c_envelope(interface_envelope), split_group="interface_plate", notes="Full interface plate is regenerated from profile dimensions."),
+        Target("Interface plate front split", CAD_DIR / "s1_interface_plate.scad", "s1_interface_plate_front_split.stl", interface_split_envelope, {"build_part": "front"}, split_group="interface_plate"),
+        Target("Interface plate rear split", CAD_DIR / "s1_interface_plate.scad", "s1_interface_plate_rear_split.stl", interface_split_envelope, {"build_part": "rear"}, split_group="interface_plate"),
+        Target("Front coupler", CAD_DIR / "s1_coupler.scad", "s1_coupler_front.stl", (scale_mm(20) + 22, 16, 11), {"build_part": "front"}),
+        Target("Rear coupler", CAD_DIR / "s1_coupler.scad", "s1_coupler_rear.stl", (scale_mm(20) + 22, 18, 11), {"build_part": "rear"}),
+        Target("Coupler face length reference", CAD_DIR / "fixtures" / "coupler_face_length_reference.scad", "s1_coupler_face_length_reference.stl", (scale_mm(320), scale_mm(48), scale_mm(17) + 10), must_fit_bed=False, must_fit_h2c=False, notes="Assembled sled and coupler reference used to measure the over-coupler-face length; not a print-project plate asset."),
+        Target("CG test fixture", CAD_DIR / "fixtures" / "cg_test_fixture.scad", "cg_test_fixture.stl", cg_fixture_envelope, must_fit_bed=fits_primary_envelope(cg_fixture_envelope), must_fit_h2c=fits_h2c_envelope(cg_fixture_envelope), notes="Preserves profile-derived support-node spacing."),
         Target("Coupler angle gauge", CAD_DIR / "fixtures" / "coupler_angle_gauge.scad", "coupler_angle_gauge.stl", (172, 112, 12)),
-        Target("Route clearance gauge", CAD_DIR / "fixtures" / "clearance_gauge.scad", "route_clearance_gauge.stl", (170, 166, 40)),
+        Target("Route clearance gauge", CAD_DIR / "fixtures" / "clearance_gauge.scad", "route_clearance_gauge.stl", clearance_envelope, must_fit_bed=fits_primary_envelope(clearance_envelope)),
         Target("Split alignment keys", CAD_DIR / "fixtures" / "alignment_keys.scad", "split_alignment_keys.stl", (48, 26, 8), notes="Loose bridge keys bond across flat front/rear split seams."),
     ]
     for stem, filename in module_sources.items():
         source = CAD_DIR / "modules" / filename
         group = stem
+        envelope = tuple(scale_mm(value) if index < 2 or stem not in {"container_40_adapter", "container_20_twin_adapter"} else value for index, value in enumerate(module_envelopes_ho[stem]))
+        if stem in {"container_40_adapter", "container_20_twin_adapter"}:
+            envelope = (scale_mm(module_envelopes_ho[stem][0]), scale_mm(module_envelopes_ho[stem][1]), module_envelopes_ho[stem][2])
+        envelope = (envelope[0] + 2, envelope[1] + 2, envelope[2] + 8)
+        split_envelope = (scale_mm(90) + 2, envelope[1], envelope[2])
         items.extend([
-            Target(stem.replace("_", " ").title(), source, f"{stem}.stl", (242, 70, 74), must_fit_bed=False, split_group=group, notes="Full reference module; use split files for 220 mm beds."),
-            Target(f"{stem.replace('_', ' ').title()} front split", source, f"{stem}_front_split.stl", (134, 70, 74), {"build_part": "front"}, split_group=group),
-            Target(f"{stem.replace('_', ' ').title()} rear split", source, f"{stem}_rear_split.stl", (134, 70, 74), {"build_part": "rear"}, split_group=group),
+            Target(stem.replace("_", " ").title(), source, f"{stem}.stl", envelope, must_fit_bed=fits_primary_envelope(envelope), must_fit_h2c=fits_h2c_envelope(envelope), split_group=group, notes="Full module regenerated from the selected scale profile; split variants remain available."),
+            Target(f"{stem.replace('_', ' ').title()} front split", source, f"{stem}_front_split.stl", split_envelope, {"build_part": "front"}, must_fit_bed=fits_primary_envelope(split_envelope), split_group=group),
+            Target(f"{stem.replace('_', ' ').title()} rear split", source, f"{stem}_rear_split.stl", split_envelope, {"build_part": "rear"}, must_fit_bed=fits_primary_envelope(split_envelope), split_group=group),
         ])
     return items
 
 
-def openscad_define_args(defines: dict[str, str]) -> list[str]:
+def fits_220_envelope(bbox: tuple[float, float, float]) -> bool:
+    return bbox[0] <= BED_X_MM + TOLERANCE_MM and bbox[1] <= BED_Y_MM + TOLERANCE_MM
+
+
+def fits_h2c_envelope(bbox: tuple[float, float, float]) -> bool:
+    return h2c_orientation_for(bbox) is not None
+
+
+def fits_primary_envelope(bbox: tuple[float, float, float]) -> bool:
+    if ACTIVE_PROFILE.primary_bed == "h2c":
+        return fits_h2c_envelope(bbox)
+    return fits_220_envelope(bbox)
+
+
+def openscad_define_args(defines: dict[str, object]) -> list[str]:
     args: list[str] = []
     for key, value in defines.items():
-        escaped = json.dumps(value)
+        escaped = str(value) if isinstance(value, (int, float)) else json.dumps(value)
         args.extend(["-D", f"{key}={escaped}"])
     return args
 
@@ -85,7 +209,7 @@ def render_target(target: Target) -> None:
         "openscad",
         "-o",
         str(output),
-        *openscad_define_args(target.defines),
+        *openscad_define_args({"s1_scale_ratio": ACTIVE_PROFILE.ratio, **target.defines}),
         str(target.source),
     ]
     subprocess.run(command, cwd=ROOT, check=True)
@@ -193,9 +317,33 @@ def basic_stl_info(path: Path) -> MeshInfo:
 
 
 def fits_bed(bbox: tuple[float, float, float]) -> bool:
-    x, y, _z = sorted((bbox[0], bbox[1], bbox[2]), reverse=True)
     flat_dims = sorted((bbox[0], bbox[1]))
     return flat_dims[0] <= BED_X_MM + TOLERANCE_MM and flat_dims[1] <= BED_Y_MM + TOLERANCE_MM
+
+
+def fits_h2c(bbox: tuple[float, float, float]) -> bool:
+    return h2c_orientation_for(bbox) is not None
+
+
+def h2c_orientation_for(bbox: tuple[float, float, float]) -> int | None:
+    usable_x, usable_y = h2c_usable_area_mm()
+    x, y = bbox[0], bbox[1]
+    if x <= usable_x + TOLERANCE_MM and y <= usable_y + TOLERANCE_MM:
+        return 0
+    if y <= usable_x + TOLERANCE_MM and x <= usable_y + TOLERANCE_MM:
+        return 90
+    return None
+
+
+def h2c_area_label() -> str:
+    usable_x, usable_y = h2c_usable_area_mm()
+    return f"{usable_x:.0f} x {usable_y:.0f} mm {ACTIVE_H2C_NOZZLE_MODE}-nozzle"
+
+
+def fits_primary_bed(bbox: tuple[float, float, float]) -> bool:
+    if ACTIVE_PROFILE.primary_bed == "h2c":
+        return fits_h2c(bbox)
+    return fits_bed(bbox)
 
 
 def within_envelope(bbox: tuple[float, float, float], envelope: tuple[float, float, float]) -> bool:
@@ -210,21 +358,28 @@ def validate_targets(targets_to_check: Iterable[Target], render: bool) -> tuple[
     if render:
         for target in all_targets:
             render_target(target)
+        write_3mf_projects(print_projects())
     split_fit: dict[str, list[bool]] = {}
+    mesh_infos: dict[str, MeshInfo] = {}
     for target in all_targets:
         path = STL_DIR / target.output
         if not path.exists():
             failures.append(f"Missing STL: {target.output}")
             continue
         info = mesh_info(path)
+        mesh_infos[target.output] = info
         envelope_ok = within_envelope(info.bbox_mm, target.envelope_mm)
         bed_ok = fits_bed(info.bbox_mm)
+        h2c_ok = fits_h2c(info.bbox_mm)
+        primary_bed_ok = fits_primary_bed(info.bbox_mm)
         if target.split_group:
-            split_fit.setdefault(target.split_group, []).append(bed_ok if target.must_fit_bed else False)
+            split_fit.setdefault(target.split_group, []).append(primary_bed_ok if target.must_fit_bed else False)
         if not envelope_ok:
             failures.append(f"{target.output} exceeds declared envelope {target.envelope_mm}: {format_bbox(info.bbox_mm)}")
-        if target.must_fit_bed and not bed_ok:
-            failures.append(f"{target.output} does not fit {BED_X_MM:.0f} x {BED_Y_MM:.0f} mm bed in current orientation")
+        if target.must_fit_bed and not primary_bed_ok:
+            failures.append(f"{target.output} does not fit the {ACTIVE_PROFILE.primary_bed.upper()} primary print bed for profile {ACTIVE_PROFILE.slug}")
+        if target.must_fit_h2c and not h2c_ok:
+            failures.append(f"{target.output} does not fit H2C usable {h2c_area_label()} bed area")
         if info.is_watertight is None:
             failures.append(f"{target.output} could not be checked for watertightness because {info.parser} does not provide topology proof")
         elif info.is_watertight is False:
@@ -233,13 +388,26 @@ def validate_targets(targets_to_check: Iterable[Target], render: bool) -> tuple[
                 known_gaps.append(message)
             else:
                 failures.append(message)
-        rows.append(report_row(target, info, envelope_ok, bed_ok))
+        rows.append(report_row(target, info, envelope_ok, bed_ok, h2c_ok, primary_bed_ok))
     for group, values in split_fit.items():
         if not any(values):
             failures.append(f"No split or direct part in group {group} fits the declared print bed")
+    basis_rows, basis_failures = validate_dimensional_basis()
+    container_rows, container_failures = validate_container_references()
+    split_rows, split_failures = validate_split_external_dimensions(all_targets, mesh_infos)
+    coupler_rows, coupler_failures = validate_coupler_face_length(mesh_infos)
+    h2c_rows, h2c_failures = validate_h2c_fit(all_targets, mesh_infos)
+    project_rows, project_failures = validate_3mf_projects(print_projects(), mesh_infos)
     interface_rows, interface_failures = validate_module_interface_fit()
+    failures.extend(basis_failures)
+    failures.extend(container_failures)
+    failures.extend(coupler_failures)
+    failures.extend(split_failures)
+    failures.extend(h2c_failures)
+    failures.extend(project_failures)
     failures.extend(interface_failures)
-    write_report(rows, failures, known_gaps, interface_rows)
+    write_report(rows, failures, known_gaps, basis_rows, container_rows, coupler_rows, split_rows, h2c_rows, project_rows, interface_rows)
+    write_asset_manifest(all_targets, mesh_infos)
     write_previews(all_targets)
     return rows, failures, known_gaps
 
@@ -252,7 +420,7 @@ def format_bbox(bbox: tuple[float, float, float]) -> str:
     return " x ".join(f"{value:.2f}" for value in bbox)
 
 
-def report_row(target: Target, info: MeshInfo, envelope_ok: bool, bed_ok: bool) -> str:
+def report_row(target: Target, info: MeshInfo, envelope_ok: bool, bed_ok: bool, h2c_ok: bool, primary_bed_ok: bool) -> str:
     volume = "n/a" if info.volume_mm3 is None else f"{info.volume_mm3:.1f}"
     if info.is_watertight is None:
         watertight = "unknown"
@@ -263,13 +431,16 @@ def report_row(target: Target, info: MeshInfo, envelope_ok: bool, bed_ok: bool) 
     return (
         f"| {target.output} | {target.name} | {format_bbox(info.bbox_mm)} | "
         f"{volume} | {info.triangle_count} | {watertight} | "
-        f"{'yes' if envelope_ok else 'no'} | {'yes' if bed_ok else 'no'} | {target.notes} |"
+        f"{'yes' if envelope_ok else 'no'} | {'yes' if bed_ok else 'no'} | "
+        f"{'yes' if h2c_ok else 'no'} | {'yes' if primary_bed_ok else 'no'} | {target.notes} |"
     )
 
 
 def validate_module_interface_fit() -> tuple[list[str], list[str]]:
     parameters_path = CAD_DIR / "s1_parameters.scad"
     parameters_text = parameters_path.read_text(encoding="utf8")
+    mount_x = scale_mm(70)
+    mount_y = scale_mm(15.5)
     expectations = [
         ("s1_interface_plate.scad", CAD_DIR / "s1_interface_plate.scad", "module_interface_cutouts("),
         *[
@@ -286,7 +457,7 @@ def validate_module_interface_fit() -> tuple[list[str], list[str]]:
             failures.append(f"{label} does not use shared S1 interface helper {helper}")
         rows.append(
             f"| {label} | {helper.rstrip('(')} | {'yes' if ok else 'no'} | "
-            f"four mount/latch stations at X +/-{90} mm and Y +/-{24} mm |"
+            f"four mount/latch stations at X +/-{mount_x:g} mm and Y +/-{mount_y:g} mm |"
         )
     helper_checks = [
         ("s1_parameters.scad", "module_interface_cutouts", module_contains_call(parameters_text, "module_interface_cutouts", "mount_pin_holes(") and module_contains_call(parameters_text, "module_interface_cutouts", "latch_slots("), "shared helper includes mount-pin holes and latch slots"),
@@ -308,10 +479,663 @@ def module_contains_call(text: str, module_name: str, call: str) -> bool:
     return call in body
 
 
+def read_scad_numeric_parameters() -> dict[str, float]:
+    text = (CAD_DIR / "s1_parameters.scad").read_text(encoding="utf8")
+    values: dict[str, float] = {}
+    for match in re.finditer(r"^\s*(s1_[A-Za-z0-9_]+)\s*=\s*([-+]?\d+(?:\.\d+)?)\s*;", text, re.MULTILINE):
+        values[match.group(1)] = float(match.group(2))
+    return values
+
+
+def read_scad_assignments() -> dict[str, str]:
+    text = (CAD_DIR / "s1_parameters.scad").read_text(encoding="utf8")
+    return {
+        match.group(1): match.group(2).strip()
+        for match in re.finditer(r"^\s*(s1_[A-Za-z0-9_]+)\s*=\s*([^;]+)\s*;", text, re.MULTILINE)
+    }
+
+
+def evaluate_scad_assignment(key: str, ratio: float, assignments: dict[str, str] | None = None) -> float | None:
+    source = read_scad_assignments() if assignments is None else assignments
+    expression = source.get(key)
+    if expression is None:
+        return None
+    numeric = re.fullmatch(r"[-+]?\d+(?:\.\d+)?", expression)
+    if numeric:
+        return float(expression)
+    if expression == "s1_scale_ratio":
+        return ratio
+    scaled = re.fullmatch(r"s1_model_mm\(([^)]+)\)", expression)
+    if scaled:
+        argument = scaled.group(1).strip()
+        literal = re.fullmatch(r"[-+]?\d+(?:\.\d+)?", argument)
+        if literal:
+            return float(argument) / ratio
+        full_size_value = evaluate_scad_assignment(argument, ratio, source)
+        return None if full_size_value is None else full_size_value / ratio
+    return None
+
+
+def validate_dimensional_basis() -> tuple[list[str], list[str]]:
+    assignments = read_scad_assignments()
+    numeric_parameters = read_scad_numeric_parameters()
+    expectations = [
+        ("Scale ratio", "s1_scale_ratio", ACTIVE_PROFILE.ratio, "selected model scale profile"),
+        ("Length over coupler faces", "s1_length_over_coupler_faces", scale_mm(320), "27.87 m full-size equivalent"),
+        ("Printed sled body length", "s1_sled_body_length", scale_mm(300), "distinct from length over coupler faces"),
+        ("Structural deck length", "s1_structural_deck_length", scale_mm(286), "supports the profile-derived module with fairing overhang"),
+        ("Sled body width", "s1_sled_width", scale_mm(42), "3.66 m full-size vehicle body"),
+        ("Stabilization envelope width", "s1_stabilization_envelope_width", scale_mm(48), "4.18 m full-size including guide/stabilizer sweep"),
+        ("Deck height above guideway datum", "s1_deck_height_above_g0", scale_mm(12), "1.05 m full-size datum offset"),
+        ("Module length", "s1_module_length", scale_mm(180), "15.68 m full-size replaceable module"),
+        ("Module width", "s1_module_width", scale_mm(40), "3.48 m full-size module envelope"),
+    ]
+    rows: list[str] = []
+    failures: list[str] = []
+    for label, key, expected, rationale in expectations:
+        actual = ACTIVE_PROFILE.ratio if key == "s1_scale_ratio" else evaluate_scad_assignment(key, ACTIVE_PROFILE.ratio, assignments)
+        ok = actual is not None and abs(actual - expected) <= 0.05
+        if not ok:
+            failures.append(f"{key} expected {expected:g} mm for Issue #21 dimensional basis but found {actual}")
+        full_size = "n/a" if actual is None or key == "s1_scale_ratio" else f"{actual * ACTIVE_PROFILE.ratio / 1000:.2f} m"
+        rows.append(
+            f"| {label} | `{key}` | {expected:.2f} | {actual if actual is not None else 'missing'} | {full_size} | {'yes' if ok else 'no'} | {rationale} |"
+        )
+    default_ratio = numeric_parameters.get("s1_scale_ratio")
+    if default_ratio is None or abs(default_ratio - BASELINE_RATIO) > 0.05:
+        failures.append("s1_scale_ratio must keep the HO 1:87.1 default so legacy root generation remains stable")
+    length = evaluate_scad_assignment("s1_length_over_coupler_faces", ACTIVE_PROFILE.ratio, assignments)
+    body = evaluate_scad_assignment("s1_sled_body_length", ACTIVE_PROFILE.ratio, assignments)
+    if length is None or body is None or abs(length - body) <= 0.05:
+        failures.append("s1_length_over_coupler_faces and s1_sled_body_length must remain distinct")
+    return rows, failures
+
+
+def validate_container_references() -> tuple[list[str], list[str]]:
+    parameters = read_scad_numeric_parameters()
+    assignments = read_scad_assignments()
+    expected = {
+        "s1_iso_40ft_length": 12192.0 / ACTIVE_PROFILE.ratio,
+        "s1_iso_20ft_length": 6058.0 / ACTIVE_PROFILE.ratio,
+        "s1_iso_container_width": 2438.0 / ACTIVE_PROFILE.ratio,
+        "s1_iso_container_height": 2591.0 / ACTIVE_PROFILE.ratio,
+        "s1_iso_high_cube_container_height": 2896.0 / ACTIVE_PROFILE.ratio,
+    }
+    labels = {
+        "s1_iso_40ft_length": f"{ACTIVE_PROFILE.slug} 40-foot container length",
+        "s1_iso_20ft_length": f"{ACTIVE_PROFILE.slug} 20-foot container length",
+        "s1_iso_container_width": f"{ACTIVE_PROFILE.slug} ISO container width",
+        "s1_iso_container_height": f"{ACTIVE_PROFILE.slug} standard container height",
+        "s1_iso_high_cube_container_height": f"{ACTIVE_PROFILE.slug} high-cube height",
+    }
+    rows: list[str] = []
+    failures: list[str] = []
+    actual_values: dict[str, float] = {}
+    for key, expected_mm in expected.items():
+        actual = evaluate_scad_assignment(key, ACTIVE_PROFILE.ratio, assignments)
+        if actual is not None:
+            actual_values[key] = actual
+        ok = actual is not None and abs(actual - expected_mm) <= 0.05
+        if not ok:
+            failures.append(f"{key} expected {expected_mm:.2f} mm at 1:{ACTIVE_PROFILE.ratio:g} but found {actual}")
+        rows.append(
+            f"| {labels[key]} | `{key}` | {expected_mm:.2f} | {actual if actual is not None else 'missing'} | {'yes' if ok else 'no'} |"
+        )
+
+    container_lengths = {key: actual_values.get(key, expected[key]) for key in expected}
+    pocket_40_l = container_lengths["s1_iso_40ft_length"] + parameters["s1_container_fit_clearance_length"]
+    pocket_20_l = container_lengths["s1_iso_20ft_length"] + parameters["s1_container_fit_clearance_length"]
+    pocket_w = container_lengths["s1_iso_container_width"] + parameters["s1_container_fit_clearance_width"]
+    tray_40_l = pocket_40_l + 2 * parameters["s1_container_retention_clearance"]
+    tray_pair_l = 2 * pocket_20_l + parameters["s1_container_20ft_gap"] + 2 * parameters["s1_container_retention_clearance"]
+    tray_w = pocket_w + 2 * parameters["s1_container_retention_rail_width"]
+    module_length = scale_mm(180)
+    module_width = scale_mm(40)
+    checks = [
+        ("40-foot purchased-container pocket", pocket_40_l >= container_lengths["s1_iso_40ft_length"], f"{pocket_40_l:.2f} x {pocket_w:.2f} mm inside pocket"),
+        ("40-foot retained tray", tray_40_l <= module_length and tray_w <= module_width, f"{tray_40_l:.2f} x {tray_w:.2f} mm outer retention envelope"),
+        ("Twin 20-foot purchased-container pockets", pocket_20_l >= container_lengths["s1_iso_20ft_length"], f"two {pocket_20_l:.2f} x {pocket_w:.2f} mm pockets"),
+        ("Twin 20-foot retained tray", tray_pair_l <= module_length and tray_w <= module_width, f"{tray_pair_l:.2f} x {tray_w:.2f} mm paired retention envelope"),
+    ]
+    for label, ok, detail in checks:
+        if not ok:
+            failures.append(f"{label} does not fit the recalibrated S1 module envelope")
+        rows.append(f"| {label} | derived | {detail} | {detail} | {'yes' if ok else 'no'} |")
+    return rows, failures
+
+
+def validate_coupler_face_length(mesh_infos: dict[str, MeshInfo]) -> tuple[list[str], list[str]]:
+    output = "s1_coupler_face_length_reference.stl"
+    info = mesh_infos.get(output)
+    expected = scale_mm(320)
+    rows: list[str] = []
+    failures: list[str] = []
+    if info is None:
+        failures.append(f"{output} is missing; cannot validate assembled over-coupler-face length")
+        rows.append(f"| {output} | {expected:.2f} | missing | n/a | no |")
+        return rows, failures
+
+    actual = info.bbox_mm[0]
+    delta = abs(actual - expected)
+    ok = delta <= TOLERANCE_MM
+    if not ok:
+        failures.append(
+            f"{output} measures {actual:.2f} mm over coupler faces, expected {expected:.2f} mm "
+            f"for profile {ACTIVE_PROFILE.slug}"
+        )
+    rows.append(f"| {output} | {expected:.2f} | {actual:.2f} | {delta:.2f} | {'yes' if ok else 'no'} |")
+    return rows, failures
+
+
+def validate_split_external_dimensions(
+    all_targets: list[Target],
+    mesh_infos: dict[str, MeshInfo],
+) -> tuple[list[str], list[str]]:
+    by_group: dict[str, dict[str, Target]] = {}
+    for target in all_targets:
+        if not target.split_group:
+            continue
+        bucket = by_group.setdefault(target.split_group, {})
+        if target.output.endswith("_front_split.stl"):
+            bucket["front"] = target
+        elif target.output.endswith("_rear_split.stl"):
+            bucket["rear"] = target
+        else:
+            bucket["full"] = target
+    rows: list[str] = []
+    failures: list[str] = []
+    for group, members in sorted(by_group.items()):
+        if not {"full", "front", "rear"}.issubset(members):
+            failures.append(f"Split group {group} is missing a full/front/rear target")
+            continue
+        full = mesh_infos.get(members["full"].output)
+        front = mesh_infos.get(members["front"].output)
+        rear = mesh_infos.get(members["rear"].output)
+        if full is None or front is None or rear is None:
+            failures.append(f"Split group {group} is missing mesh info")
+            continue
+        combined_x = front.bbox_mm[0] + rear.bbox_mm[0]
+        width_delta = abs(max(front.bbox_mm[1], rear.bbox_mm[1]) - full.bbox_mm[1])
+        height_delta = abs(max(front.bbox_mm[2], rear.bbox_mm[2]) - full.bbox_mm[2])
+        length_delta = abs(combined_x - full.bbox_mm[0])
+        ok = length_delta <= 2 * TOLERANCE_MM and width_delta <= TOLERANCE_MM and height_delta <= TOLERANCE_MM
+        if not ok:
+            failures.append(
+                f"Split group {group} does not preserve full external dimensions: "
+                f"combined length delta {length_delta:.2f}, width delta {width_delta:.2f}, height delta {height_delta:.2f}"
+            )
+        rows.append(
+            f"| {group} | {format_bbox(full.bbox_mm)} | {combined_x:.2f} combined split X | "
+            f"{width_delta:.2f} | {height_delta:.2f} | {'yes' if ok else 'no'} |"
+        )
+    return rows, failures
+
+
+def validate_h2c_fit(
+    all_targets: list[Target],
+    mesh_infos: dict[str, MeshInfo],
+) -> tuple[list[str], list[str]]:
+    rows: list[str] = []
+    failures: list[str] = []
+    for target in all_targets:
+        if "_split" in target.output:
+            continue
+        info = mesh_infos.get(target.output)
+        if info is None:
+            continue
+        orientation = h2c_orientation_for(info.bbox_mm)
+        ok = orientation is not None
+        if target.must_fit_h2c and not ok:
+            failures.append(f"{target.output} does not fit the H2C {h2c_area_label()} usable bed area as a one-piece asset")
+        orientation_text = "n/a" if orientation is None else f"{orientation} deg"
+        rows.append(
+            f"| {target.output} | {format_bbox(info.bbox_mm)} | {h2c_area_label()} | {orientation_text} | {'yes' if ok else 'no'} |"
+        )
+    return rows, failures
+
+
+def print_projects() -> list[PrintProject]:
+    modules = [
+        ("commuter_pod.stl", "commuter pod"),
+        ("overnight_pod.stl", "overnight pod"),
+        ("battery_pod.stl", "battery pod"),
+        ("container_40_adapter.stl", "40-foot container adapter"),
+        ("container_20_twin_adapter.stl", "twin 20-foot container adapter"),
+        ("open_bin.stl", "open bin"),
+        ("ballast_test_module.stl", "ballast test module"),
+    ]
+    projects: list[PrintProject] = []
+    for output, name in modules:
+        stem = Path(output).stem
+        module_parts = project_parts_for_output(output, name)
+        sled_parts = project_parts_for_output("s1_sled_body.stl", "S1 sled body")
+        projects.append(PrintProject(
+            filename=f"{stem}_module_h2c.3mf",
+            title=f"S1 {name} module H2C print project",
+            parts=tuple(module_parts),
+            notes=f"{ACTIVE_PROFILE.label} module project at 100% scale; uses split objects when the full module exceeds H2C fit.",
+        ))
+        car_parts = (
+            *sled_parts,
+            PrintPart("s1_coupler_front.stl", "front coupler"),
+            PrintPart("s1_coupler_rear.stl", "rear coupler"),
+            *module_parts,
+        )
+        if parts_pack_on_h2c(car_parts):
+            projects.append(PrintProject(
+                filename=f"s1_{stem}_car_h2c.3mf",
+                title=f"S1 {name} complete car H2C print project",
+                parts=car_parts,
+                notes=f"H2C-oriented {ACTIVE_PROFILE.label} plate containing sled, replaceable couplers, and one module at 100% scale.",
+            ))
+        else:
+            projects.append(PrintProject(
+                filename=f"s1_{stem}_car_h2c_sled_plate.3mf",
+                title=f"S1 {name} complete car sled plate H2C print project",
+                parts=(*sled_parts, PrintPart("s1_coupler_front.stl", "front coupler"), PrintPart("s1_coupler_rear.stl", "rear coupler")),
+                notes=f"Plate 1 of the {ACTIVE_PROFILE.label} complete car set; module parts are in the paired module plate.",
+            ))
+            projects.append(PrintProject(
+                filename=f"s1_{stem}_car_h2c_module_plate.3mf",
+                title=f"S1 {name} complete car module plate H2C print project",
+                parts=tuple(module_parts),
+                notes=f"Plate 2 of the {ACTIVE_PROFILE.label} complete car set; sled and couplers are in the paired sled plate.",
+            ))
+    fixture_candidates = (
+        PrintPart("cg_test_fixture.stl", "CG test fixture"),
+        PrintPart("coupler_angle_gauge.stl", "coupler angle gauge"),
+        PrintPart("route_clearance_gauge.stl", "route clearance gauge"),
+        PrintPart("split_alignment_keys.stl", "split alignment keys"),
+    )
+    fixture_parts = tuple(part for part in fixture_candidates if part_fits_h2c(part.output))
+    projects.append(PrintProject(
+        filename="s1_fixtures_h2c.3mf",
+        title="S1 fixtures H2C print project",
+        parts=fixture_parts,
+        notes=f"{ACTIVE_PROFILE.label} H2C-fitting measurement and assembly fixtures at 100% scale; oversized fixtures remain as STL assets.",
+    ))
+    return projects
+
+
+def project_parts_for_output(output: str, name: str) -> list[PrintPart]:
+    path = STL_DIR / output
+    if path.exists() and fits_h2c(mesh_info(path).bbox_mm):
+        return [PrintPart(output, name)]
+    stem = output.removesuffix(".stl")
+    front = f"{stem}_front_split.stl"
+    rear = f"{stem}_rear_split.stl"
+    if (STL_DIR / front).exists() and (STL_DIR / rear).exists():
+        return [
+            PrintPart(front, f"{name} front split"),
+            PrintPart(rear, f"{name} rear split"),
+        ]
+    return [PrintPart(output, name)]
+
+
+def part_fits_h2c(output: str) -> bool:
+    path = STL_DIR / output
+    return path.exists() and fits_h2c(mesh_info(path).bbox_mm)
+
+
+def parts_pack_on_h2c(parts: tuple[PrintPart, ...]) -> bool:
+    try:
+        pack_project_parts(PrintProject("probe.3mf", "probe", parts, ""), [load_mesh_for_3mf(STL_DIR / part.output) for part in parts])
+    except RuntimeError:
+        return False
+    return True
+
+
+def write_3mf_projects(projects: list[PrintProject]) -> None:
+    THREE_MF_DIR.mkdir(parents=True, exist_ok=True)
+    for project in projects:
+        object_meshes = [load_mesh_for_3mf(STL_DIR / part.output) for part in project.parts]
+        packed_objects = pack_project_parts(project, object_meshes)
+        model_xml = three_mf_model_xml(project, packed_objects)
+        usable_x, usable_y = h2c_usable_area_mm()
+        metadata = {
+            "title": project.title,
+            "notes": project.notes,
+            "scale_profile": ACTIVE_PROFILE.slug,
+            "scale_label": ACTIVE_PROFILE.label,
+            "scale_ratio": ACTIVE_PROFILE.ratio,
+            "format_claim": "generic-core-3mf-importable-model-plate",
+            "bambu_studio_native_project": False,
+            "h2c_nozzle_mode": ACTIVE_H2C_NOZZLE_MODE,
+            "h2c_usable_bed_mm": [usable_x, usable_y],
+            "scale": "100%",
+            "orientation": "flat on generated STL datum; deterministic 90-degree Z rotation is applied in the 3MF geometry only where required for plate fit",
+            "part_rotations_deg": {
+                packed.part.output: packed.rotation_deg
+                for packed in packed_objects
+            },
+            "recommended_settings": {
+                "layer_height_mm": "0.16-0.24",
+                "walls": "3+",
+                "infill": "20-35% shells, 40-60% fixtures/couplers",
+                "supports": "avoid sockets; light supports only under taper if required",
+            },
+        }
+        path = THREE_MF_DIR / project.filename
+        with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+            archive.writestr("[Content_Types].xml", content_types_xml())
+            archive.writestr("_rels/.rels", rels_xml())
+            archive.writestr("3D/3dmodel.model", model_xml)
+            archive.writestr("Metadata/atos-print-settings.json", json.dumps(metadata, indent=2, sort_keys=True))
+            archive.writestr("Metadata/bambu-studio-smoke-test.md", bambu_studio_smoke_test_text())
+
+
+def load_mesh_for_3mf(path: Path):
+    try:
+        import trimesh  # type: ignore
+    except ModuleNotFoundError as exc:
+        raise RuntimeError("3MF generation requires trimesh from tools/cad/requirements.txt") from exc
+    return trimesh.load_mesh(path, force="mesh")
+
+
+def pack_project_parts(project: PrintProject, meshes) -> list[PackedObject]:
+    placements: list[PackedObject] = []
+    usable_x, usable_y = h2c_usable_area_mm()
+    cursor_x = 0.0
+    cursor_y = 0.0
+    row_height = 0.0
+    for part, mesh in zip(project.parts, meshes):
+        packed_mesh, rotation_deg = choose_h2c_packing_orientation(mesh, cursor_x, cursor_y, usable_x, usable_y)
+        extent_x = float(packed_mesh.extents[0])
+        extent_y = float(packed_mesh.extents[1])
+        if cursor_x + extent_x > usable_x + TOLERANCE_MM:
+            cursor_x = 0.0
+            cursor_y += row_height + H2C_PART_SPACING_MM
+            row_height = 0.0
+            packed_mesh, rotation_deg = choose_h2c_packing_orientation(mesh, cursor_x, cursor_y, usable_x, usable_y)
+            extent_x = float(packed_mesh.extents[0])
+            extent_y = float(packed_mesh.extents[1])
+        if cursor_y + extent_y > usable_y + TOLERANCE_MM:
+            raise RuntimeError(f"{project.filename} cannot pack {part.output} on the declared H2C bed")
+        min_x, min_y, min_z = (float(value) for value in packed_mesh.bounds[0])
+        placements.append(PackedObject(part, packed_mesh, (cursor_x - min_x, cursor_y - min_y, -min_z), rotation_deg))
+        cursor_x += extent_x + H2C_PART_SPACING_MM
+        row_height = max(row_height, extent_y)
+    return placements
+
+
+def choose_h2c_packing_orientation(mesh, cursor_x: float, cursor_y: float, usable_x: float, usable_y: float):
+    candidates = [(0, mesh.copy()), (90, rotated_mesh_z_90(mesh))]
+    fitting = [
+        (rotation, candidate)
+        for rotation, candidate in candidates
+        if candidate.extents[0] <= usable_x + TOLERANCE_MM and candidate.extents[1] <= usable_y + TOLERANCE_MM
+    ]
+    if not fitting:
+        raise RuntimeError(
+            f"Part extents {float(mesh.extents[0]):.2f} x {float(mesh.extents[1]):.2f} mm "
+            f"do not fit H2C {h2c_area_label()} in either orientation"
+        )
+    for rotation, candidate in fitting:
+        if cursor_x + float(candidate.extents[0]) <= usable_x + TOLERANCE_MM and cursor_y + float(candidate.extents[1]) <= usable_y + TOLERANCE_MM:
+            return candidate, rotation
+    return fitting[0][1], fitting[0][0]
+
+
+def rotated_mesh_z_90(mesh):
+    rotated = mesh.copy()
+    rotated.apply_transform([
+        [0.0, -1.0, 0.0, 0.0],
+        [1.0, 0.0, 0.0, 0.0],
+        [0.0, 0.0, 1.0, 0.0],
+        [0.0, 0.0, 0.0, 1.0],
+    ])
+    return rotated
+
+
+def three_mf_model_xml(project: PrintProject, packed_objects: list[PackedObject]) -> bytes:
+    ns = "http://schemas.microsoft.com/3dmanufacturing/core/2015/02"
+    ET.register_namespace("", ns)
+    model = ET.Element(f"{{{ns}}}model", {"unit": "millimeter", "{http://www.w3.org/XML/1998/namespace}lang": "en-US"})
+    ET.SubElement(model, f"{{{ns}}}metadata", {"name": "Title"}).text = project.title
+    ET.SubElement(model, f"{{{ns}}}metadata", {"name": "Application"}).text = "ATOS S1 CAD validator"
+    resources = ET.SubElement(model, f"{{{ns}}}resources")
+    build = ET.SubElement(model, f"{{{ns}}}build")
+    for index, packed in enumerate(packed_objects, start=1):
+        obj = ET.SubElement(resources, f"{{{ns}}}object", {"id": str(index), "type": "model", "name": packed.part.name})
+        mesh_node = ET.SubElement(obj, f"{{{ns}}}mesh")
+        vertices = ET.SubElement(mesh_node, f"{{{ns}}}vertices")
+        for vertex in packed.mesh.vertices:
+            ET.SubElement(vertices, f"{{{ns}}}vertex", {
+                "x": f"{float(vertex[0]):.6f}",
+                "y": f"{float(vertex[1]):.6f}",
+                "z": f"{float(vertex[2]):.6f}",
+            })
+        triangles = ET.SubElement(mesh_node, f"{{{ns}}}triangles")
+        for face in packed.mesh.faces:
+            ET.SubElement(triangles, f"{{{ns}}}triangle", {
+                "v1": str(int(face[0])),
+                "v2": str(int(face[1])),
+                "v3": str(int(face[2])),
+            })
+        transform = " ".join([
+            "1", "0", "0",
+            "0", "1", "0",
+            "0", "0", "1",
+            f"{packed.placement[0]:.6f}", f"{packed.placement[1]:.6f}", f"{packed.placement[2]:.6f}",
+        ])
+        ET.SubElement(build, f"{{{ns}}}item", {"objectid": str(index), "transform": transform})
+    return ET.tostring(model, encoding="utf-8", xml_declaration=True)
+
+
+def content_types_xml() -> str:
+    return "\n".join([
+        '<?xml version="1.0" encoding="UTF-8"?>',
+        '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">',
+        '  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>',
+        '  <Default Extension="model" ContentType="application/vnd.ms-package.3dmanufacturing-3dmodel+xml"/>',
+        '  <Default Extension="json" ContentType="application/json"/>',
+        '  <Default Extension="md" ContentType="text/markdown"/>',
+        '</Types>',
+        "",
+    ])
+
+
+def rels_xml() -> str:
+    return "\n".join([
+        '<?xml version="1.0" encoding="UTF-8"?>',
+        '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">',
+        '  <Relationship Target="/3D/3dmodel.model" Id="rel-1" Type="http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel"/>',
+        '</Relationships>',
+        "",
+    ])
+
+
+def bambu_studio_smoke_test_text() -> str:
+    return "\n".join([
+        "# Bambu Studio Import And Slice Smoke Test",
+        "",
+        "These archives are generic 3MF model plates. They are not native Bambu Studio project files and do not claim to carry printer profiles, filament profiles, or slicer settings that Bambu Studio will automatically apply.",
+        "",
+        "Reproducible manual smoke test:",
+        "",
+        "1. Open Bambu Studio.",
+        "2. Select an H2C printer profile matching the intended nozzle mode.",
+        "3. Import this 3MF archive as a model plate.",
+        "4. Confirm the model units are millimeters and the object scale remains 100%.",
+        f"5. Confirm every object lies inside the H2C {h2c_area_label()} build area.",
+        "6. Manually apply the recommended ATOS settings from `Metadata/atos-print-settings.json`.",
+        "7. Slice the plate and record the Bambu Studio version, OS, printer profile, nozzle mode, 3MF filename, and whether the slicer reports placement, unit, or geometry warnings.",
+        "",
+    ])
+
+
+def validate_3mf_projects(
+    projects: list[PrintProject],
+    _mesh_infos: dict[str, MeshInfo],
+) -> tuple[list[str], list[str]]:
+    ns = {"m": "http://schemas.microsoft.com/3dmanufacturing/core/2015/02"}
+    rows: list[str] = []
+    failures: list[str] = []
+    for project in projects:
+        path = THREE_MF_DIR / project.filename
+        if not path.exists():
+            failures.append(f"Missing 3MF project: {project.filename}")
+            continue
+        try:
+            with zipfile.ZipFile(path) as archive:
+                names = set(archive.namelist())
+                required = {
+                    "[Content_Types].xml",
+                    "_rels/.rels",
+                    "3D/3dmodel.model",
+                    "Metadata/atos-print-settings.json",
+                    "Metadata/bambu-studio-smoke-test.md",
+                }
+                missing = required - names
+                if missing:
+                    failures.append(f"{project.filename} is missing required 3MF entries: {sorted(missing)}")
+                    continue
+                root = ET.fromstring(archive.read("3D/3dmodel.model"))
+                metadata = json.loads(archive.read("Metadata/atos-print-settings.json"))
+                smoke_test = archive.read("Metadata/bambu-studio-smoke-test.md").decode("utf8", errors="replace")
+        except (zipfile.BadZipFile, ET.ParseError) as exc:
+            failures.append(f"{project.filename} is not a readable 3MF archive: {exc}")
+            continue
+        except json.JSONDecodeError as exc:
+            failures.append(f"{project.filename} has invalid ATOS 3MF metadata JSON: {exc}")
+            continue
+        unit_ok = root.attrib.get("unit") == "millimeter"
+        metadata_ok = (
+            metadata.get("format_claim") == "generic-core-3mf-importable-model-plate"
+            and metadata.get("bambu_studio_native_project") is False
+            and metadata.get("h2c_nozzle_mode") == ACTIVE_H2C_NOZZLE_MODE
+            and metadata.get("h2c_usable_bed_mm") == list(h2c_usable_area_mm())
+            and metadata.get("scale") == "100%"
+        )
+        smoke_test_ok = "generic 3MF model plates" in smoke_test and "Slice the plate" in smoke_test
+        objects = root.findall(".//m:object", ns)
+        items = root.findall(".//m:build/m:item", ns)
+        expected_names = [part.name for part in project.parts]
+        actual_names = [obj.attrib.get("name", "") for obj in objects]
+        names_ok = actual_names == expected_names
+        count_ok = len(objects) == len(project.parts) and len(items) == len(project.parts)
+        scale_ok = True
+        fit_ok = True
+        bounds_by_object: dict[str, tuple[float, float, float, float]] = {}
+        for obj in objects:
+            vertices = [
+                (
+                    float(vertex.attrib["x"]),
+                    float(vertex.attrib["y"]),
+                )
+                for vertex in obj.findall(".//m:vertex", ns)
+            ]
+            if not vertices:
+                fit_ok = False
+                continue
+            bounds_by_object[obj.attrib["id"]] = (
+                min(vertex[0] for vertex in vertices),
+                min(vertex[1] for vertex in vertices),
+                max(vertex[0] for vertex in vertices),
+                max(vertex[1] for vertex in vertices),
+            )
+        for item in items:
+            transform = [float(value) for value in item.attrib.get("transform", "").split()]
+            if len(transform) != 12:
+                scale_ok = False
+                fit_ok = False
+                continue
+            if transform[:9] != [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]:
+                scale_ok = False
+            tx, ty = transform[9], transform[10]
+            bounds = bounds_by_object.get(item.attrib["objectid"])
+            if bounds is None:
+                fit_ok = False
+                continue
+            min_x, min_y, max_x, max_y = bounds
+            placed = (min_x + tx, min_y + ty, max_x + tx, max_y + ty)
+            if placed[0] < -TOLERANCE_MM or placed[1] < -TOLERANCE_MM:
+                fit_ok = False
+            usable_x, usable_y = h2c_usable_area_mm()
+            if placed[2] > usable_x + TOLERANCE_MM or placed[3] > usable_y + TOLERANCE_MM:
+                fit_ok = False
+        ok = unit_ok and names_ok and count_ok and scale_ok and fit_ok and metadata_ok and smoke_test_ok
+        if not ok:
+            failures.append(
+                f"{project.filename} failed 3MF validation: "
+                f"unit={unit_ok}, names={names_ok}, count={count_ok}, scale={scale_ok}, "
+                f"fit={fit_ok}, metadata={metadata_ok}, smoke_test={smoke_test_ok}"
+            )
+        rows.append(
+            f"| {project.filename} | {len(project.parts)} | {'yes' if unit_ok else 'no'} | "
+            f"{'yes' if names_ok else 'no'} | {'yes' if scale_ok else 'no'} | "
+            f"{'yes' if fit_ok and metadata_ok and smoke_test_ok else 'no'} | {project.notes} |"
+        )
+    return rows, failures
+
+
+def write_asset_manifest(all_targets: list[Target], mesh_infos: dict[str, MeshInfo]) -> None:
+    MANIFEST_PATH.parent.mkdir(parents=True, exist_ok=True)
+    manifest = {
+        "schema_version": "atos.s1.generated-assets.v1",
+        "scale_profile": ACTIVE_PROFILE.slug,
+        "scale_label": ACTIVE_PROFILE.label,
+        "scale_ratio": ACTIVE_PROFILE.ratio,
+        "primary_bed": ACTIVE_PROFILE.primary_bed,
+        "h2c_nozzle_mode": ACTIVE_H2C_NOZZLE_MODE,
+        "h2c_usable_bed_mm": list(h2c_usable_area_mm()),
+        "paths": {
+            "stl": display_path(STL_DIR),
+            "previews": display_path(PREVIEW_DIR),
+            "three_mf": display_path(THREE_MF_DIR),
+            "report": display_path(REPORT_PATH),
+        },
+        "dimensions_mm": {
+            "length_over_coupler_faces": scale_mm(320),
+            "printed_sled_body_length": scale_mm(300),
+            "derived_coupler_pivot_spacing": scale_mm(320) - (2 * scale_mm(20)) - 27.5,
+            "sled_body_width": scale_mm(42),
+            "stabilization_envelope_width": scale_mm(48),
+            "module_length": scale_mm(180),
+            "module_width": scale_mm(40),
+            "iso_40ft_container_length": 12192.0 / ACTIVE_PROFILE.ratio,
+            "iso_20ft_container_length": 6058.0 / ACTIVE_PROFILE.ratio,
+            "iso_container_width": 2438.0 / ACTIVE_PROFILE.ratio,
+        },
+        "manufacturing_parameters_model_mm": {
+            "wall_thickness": 1.8,
+            "printer_tolerance": 0.35,
+            "mount_pin_diameter": 3.4,
+            "latch_slot_length": 12,
+            "latch_slot_width": 3.8,
+            "split_key_length": 10,
+            "split_key_width": 5,
+            "split_key_height": 3,
+            "container_fit_clearance_length": 1.5,
+            "container_fit_clearance_width": 1.2,
+        },
+        "assets": [
+            {
+                "output": target.output,
+                "target": target.name,
+                "bbox_mm": list(mesh_infos[target.output].bbox_mm) if target.output in mesh_infos else None,
+                "watertight": mesh_infos[target.output].is_watertight if target.output in mesh_infos else None,
+                "primary_bed_fit": fits_primary_bed(mesh_infos[target.output].bbox_mm) if target.output in mesh_infos else None,
+                "h2c_fit": fits_h2c(mesh_infos[target.output].bbox_mm) if target.output in mesh_infos else None,
+                "notes": target.notes,
+            }
+            for target in all_targets
+        ],
+        "three_mf_projects": sorted(path.name for path in THREE_MF_DIR.glob("*.3mf")) if THREE_MF_DIR.exists() else [],
+    }
+    MANIFEST_PATH.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf8")
+
+
 def write_report(
     rows: list[str],
     failures: list[str],
     known_gaps: list[str],
+    basis_rows: list[str],
+    container_rows: list[str],
+    coupler_rows: list[str],
+    split_rows: list[str],
+    h2c_rows: list[str],
+    project_rows: list[str],
     interface_rows: list[str],
 ) -> None:
     status = "FAIL" if failures else "CONDITIONAL PASS" if known_gaps else "PASS"
@@ -321,12 +1145,16 @@ def write_report(
             "",
             "Generated by `python3 tools/cad/s1_generate_and_validate.py`.",
             "",
-            "The report validates prototype CAD assets for file presence, OpenSCAD renderability, bounding boxes, volume, watertight meshes when `trimesh` is available, declared envelopes, 220 x 220 mm print-bed fit for direct or split parts, and generated preview coverage.",
+            f"Scale profile: `{ACTIVE_PROFILE.slug}` ({ACTIVE_PROFILE.label}, ratio 1:{ACTIVE_PROFILE.ratio:g}).",
+            f"Primary print-bed validation target: `{ACTIVE_PROFILE.primary_bed}`.",
+            f"H2C validation mode: `{ACTIVE_H2C_NOZZLE_MODE}` ({h2c_area_label()} usable area).",
+            "",
+            f"The report validates prototype CAD assets for file presence, OpenSCAD renderability, bounding boxes, volume, watertight meshes when `trimesh` is available, declared profile envelopes, 220 x 220 mm print-bed fit, selected primary-bed fit, H2C {h2c_area_label()} fit with deterministic 90-degree rotation where required, assembled coupler-face length, generic 3MF import-plate contents, and generated preview coverage.",
             "",
             "## Results",
             "",
-            "| STL | Target | Bounding box XYZ mm | Volume mm3 | Triangles | Watertight | Envelope OK | Bed fit | Notes |",
-            "|---|---|---:|---:|---:|---|---|---|---|",
+            "| STL | Target | Bounding box XYZ mm | Volume mm3 | Triangles | Watertight | Envelope OK | 220 bed fit | H2C fit | Primary bed fit | Notes |",
+            "|---|---|---:|---:|---:|---|---|---|---|---|---|",
             *rows,
             "",
             "## Validation status",
@@ -336,10 +1164,51 @@ def write_report(
             *[f"- {failure}" for failure in failures],
             *[f"- Known mesh gap: {gap}" for gap in known_gaps],
             "",
+            "## Profile Dimensional Basis",
+            "",
+            "| Dimension | Parameter | Expected mm | Actual mm | Full-size equivalent | OK | Rationale |",
+            "|---|---|---:|---:|---:|---|---|",
+            *basis_rows,
+            "",
+            "## Container Reference Validation",
+            "",
+            "| Check | Parameter | Expected / derived mm | Actual / derived mm | OK |",
+            "|---|---|---:|---:|---|",
+            *container_rows,
+            "",
+            "The 40-foot and twin-20 adapters are carrier pockets for purchased containers at the selected model scale. The printed adapter STLs are not treated as printed container bodies.",
+            "",
+            "## Coupler-face assembly validation",
+            "",
+            "| Reference STL | Expected over-coupler-face length mm | Measured bbox X mm | Delta mm | OK |",
+            "|---|---:|---:|---:|---|",
+            *coupler_rows,
+            "",
+            "## Split external-dimension validation",
+            "",
+            "| Group | Full bbox XYZ mm | Split combined X | Width delta mm | Height delta mm | OK |",
+            "|---|---:|---:|---:|---:|---|",
+            *split_rows,
+            "",
+            "## H2C one-piece fit validation",
+            "",
+            "| STL | Bounding box XYZ mm | Usable H2C bed | Orientation | Fits |",
+            "|---|---:|---:|---:|---|",
+            *h2c_rows,
+            "",
+            "## Generic 3MF import-plate validation",
+            "",
+            "| 3MF | Objects | Millimeter units | Expected objects | 100% scale | H2C fit and import metadata | Notes |",
+            "|---|---:|---|---|---|---|---|",
+            *project_rows,
+            "",
+            "These archives are generic 3MF model plates with ATOS metadata and an embedded Bambu Studio smoke-test procedure. They are not native Bambu Studio project files and do not claim automatic Bambu printer/profile setting application.",
+            "",
             "## Preview status",
             "",
-            f"- Generated {PREVIEW_DIR.relative_to(ROOT)}/index.svg as the contact sheet for major S1 parts.",
-            f"- Generated individual STL-derived SVG previews in {PREVIEW_DIR.relative_to(ROOT)}/.",
+            f"- Generated {display_path(PREVIEW_DIR)}/index.svg as the contact sheet for major S1 parts.",
+            f"- Generated individual STL-derived SVG previews in {display_path(PREVIEW_DIR)}/.",
+            f"- Generated generic importable 3MF model plates in {display_path(THREE_MF_DIR)}/.",
             "",
             "## Module interface fit validation",
             "",
@@ -552,27 +1421,99 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--no-render", action="store_true", help="Validate existing STL files without rerendering OpenSCAD.")
     parser.add_argument(
+        "--profile",
+        choices=sorted(PROFILES),
+        default="ho",
+        help="Named scale profile to generate or validate when --profiles is not provided.",
+    )
+    parser.add_argument(
+        "--profiles",
+        help="Comma-separated named profiles to generate into cad/s1/generated/<profile>/, for example ho,o.",
+    )
+    parser.add_argument("--custom-scale", type=float, help="Custom scale ratio, for example 64 for 1:64.")
+    parser.add_argument("--custom-name", help="Directory-safe custom profile slug; defaults to custom-1-<ratio>.")
+    parser.add_argument(
+        "--generated-output",
+        action="store_true",
+        help="Write even a single named profile under cad/s1/generated/<profile>/ instead of the legacy cad/s1 root outputs.",
+    )
+    parser.add_argument(
+        "--generated-root",
+        help="Root directory for generated profile output; defaults to cad/s1/generated.",
+    )
+    parser.add_argument(
+        "--h2c-nozzle-mode",
+        choices=sorted(H2C_USABLE_AREAS_MM),
+        default="dual",
+        help="H2C build-area mode to validate and pack against: dual=300 x 320 mm, single=305 x 320 mm.",
+    )
+    parser.add_argument(
         "--allow-known-gaps",
         action="store_true",
         help="Permit documented known mesh gaps for diagnostic runs. Acceptance validation must not use this flag.",
     )
     args = parser.parse_args()
-    _rows, failures, known_gaps = validate_targets(targets(), render=not args.no_render)
-    if failures:
-        for failure in failures:
+    global ACTIVE_H2C_NOZZLE_MODE, GENERATED_DIR
+    ACTIVE_H2C_NOZZLE_MODE = args.h2c_nozzle_mode
+    if args.generated_root:
+        GENERATED_DIR = Path(args.generated_root).expanduser().resolve()
+    selected_profiles = selected_scale_profiles(args)
+    generated_output = args.generated_output or args.profiles is not None or args.custom_scale is not None
+    all_failures: list[str] = []
+    all_known_gaps: list[str] = []
+    for profile in selected_profiles:
+        set_output_paths(profile, generated=generated_output or profile.slug != PROFILES["ho"].slug)
+        _rows, failures, known_gaps = validate_targets(targets(), render=not args.no_render)
+        all_failures.extend(f"{profile.slug}: {failure}" for failure in failures)
+        all_known_gaps.extend(f"{profile.slug}: {gap}" for gap in known_gaps)
+        action = "Validated existing" if args.no_render else "Rendered and validated"
+        print(f"{action} {len(targets())} S1 CAD STL assets for {profile.slug}.")
+        print(f"Wrote {display_path(REPORT_PATH)}")
+    if all_failures:
+        for failure in all_failures:
             print(f"FAIL: {failure}")
         return 1
-    if known_gaps and not args.allow_known_gaps:
-        for gap in known_gaps:
+    if all_known_gaps and not args.allow_known_gaps:
+        for gap in all_known_gaps:
             print(f"KNOWN-GAP: {gap}")
         print("FAIL: known mesh gaps require --allow-known-gaps and do not satisfy acceptance validation.")
         return 1
-    for gap in known_gaps:
+    for gap in all_known_gaps:
         print(f"KNOWN-GAP: {gap}")
-    action = "Validated existing" if args.no_render else "Rendered and validated"
-    print(f"{action} {len(targets())} S1 CAD STL assets.")
-    print(f"Wrote {REPORT_PATH.relative_to(ROOT)}")
     return 0
+
+
+def selected_scale_profiles(args: argparse.Namespace) -> list[ScaleProfile]:
+    if args.custom_scale is not None:
+        if args.custom_scale <= 0:
+            raise SystemExit("--custom-scale must be positive")
+        slug = args.custom_name or f"custom-1-{format_ratio_slug(args.custom_scale)}"
+        return [ScaleProfile(sanitize_slug(slug), f"Custom scale 1:{args.custom_scale:g}", args.custom_scale, "h2c")]
+    if args.profiles:
+        profiles: list[ScaleProfile] = []
+        for key in args.profiles.split(","):
+            normalized = key.strip().lower()
+            if not normalized:
+                continue
+            if normalized not in PROFILES:
+                raise SystemExit(f"Unknown profile {normalized!r}; expected one of {', '.join(sorted(PROFILES))}")
+            profiles.append(PROFILES[normalized])
+        if not profiles:
+            raise SystemExit("--profiles did not include any profile names")
+        return profiles
+    return [PROFILES[args.profile]]
+
+
+def format_ratio_slug(ratio: float) -> str:
+    text = f"{ratio:g}"
+    return text.replace(".", "-")
+
+
+def sanitize_slug(value: str) -> str:
+    slug = re.sub(r"[^a-zA-Z0-9_.-]+", "-", value.strip()).strip("-").lower()
+    if not slug:
+        raise SystemExit("Custom profile slug cannot be empty")
+    return slug
 
 
 if __name__ == "__main__":

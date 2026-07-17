@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="420" viewBox="0 0 640 420" role="img">
+  <title>Open Bin STL-derived preview</title>
+  <rect width='640' height='420' fill='#f6f8f7'/>
+  <text x='28' y='34' font-family='Arial, sans-serif' font-size='20' font-weight='700' fill='#1e2b27'>Open Bin</text>
+  <text x='28' y='58' font-family='Arial, sans-serif' font-size='12' fill='#536862'>open_bin.stl</text>
+  <text x='28' y='76' font-family='Arial, sans-serif' font-size='12' fill='#536862'>bbox 326.62 x 72.58 x 62.67 mm</text>
+  <g aria-label='isometric projection'>
+    <rect x='28.0' y='90.0' width='260.0' height='116.0' rx='8' fill='#ffffff' stroke='#c7d4ce'/>
+    <text x='40.0' y='106.0' font-family='Arial, sans-serif' font-size='11' font-weight='700' fill='#38524b'>isometric</text>
+    <polygon points='86.7,159.1 90.5,182.7 90.5,182.9 90.7,183.0 90.8,183.2 91.1,183.3 112.0,191.8 112.3,191.9 112.7,191.9 113.1,192.0 113.5,192.0 113.9,192.0 114.3,191.9 114.6,191.9 114.9,191.8 224.9,147.3 225.2,147.2 225.3,147.0 225.5,146.9 225.5,146.7 229.3,121.8 229.3,120.1 229.2,119.9 229.0,119.7 228.7,119.5 228.4,119.3 206.3,110.4 205.9,110.2 205.3,110.1 204.8,110.0 204.2,110.0 203.6,110.0 203.0,110.1 202.4,110.2 202.0,110.4 87.6,156.6 87.3,156.8 87.0,157.0 86.8,157.2 86.7,157.5' fill='#dbe8e3' stroke='#163d35' stroke-width='2'/>
+  </g>
+  <g aria-label='top projection'>
+    <rect x='320.0' y='90.0' width='260.0' height='116.0' rx='8' fill='#ffffff' stroke='#c7d4ce'/>
+    <text x='332.0' y='106.0' font-family='Arial, sans-serif' font-size='11' font-weight='700' fill='#38524b'>top</text>
+    <polygon points='332.0,172.9 332.1,173.7 332.3,174.5 332.7,175.3 333.3,176.0 333.9,176.5 334.7,176.9 335.5,177.1 336.3,177.2 563.7,177.2 564.5,177.1 565.3,176.9 566.1,176.5 566.7,176.0 567.3,175.3 567.7,174.5 567.9,173.7 568.0,172.9 568.0,129.1 567.9,128.3 567.7,127.5 567.3,126.7 566.7,126.0 566.1,125.5 565.3,125.1 564.5,124.9 563.7,124.8 336.3,124.8 335.5,124.9 334.7,125.1 333.9,125.5 333.3,126.0 332.7,126.7 332.3,127.5 332.1,128.3 332.0,129.1' fill='#dbe8e3' stroke='#163d35' stroke-width='2'/>
+  </g>
+  <g aria-label='side projection'>
+    <rect x='28.0' y='235.0' width='260.0' height='116.0' rx='8' fill='#ffffff' stroke='#c7d4ce'/>
+    <text x='40.0' y='251.0' font-family='Arial, sans-serif' font-size='11' font-weight='700' fill='#38524b'>side</text>
+    <polygon points='40.0,318.6 276.0,318.6 276.0,315.7 270.2,274.0 162.0,273.4 154.0,273.4 45.8,274.0 40.0,315.7' fill='#dbe8e3' stroke='#163d35' stroke-width='2'/>
+  </g>
+  <g aria-label='front projection'>
+    <rect x='320.0' y='235.0' width='260.0' height='116.0' rx='8' fill='#ffffff' stroke='#c7d4ce'/>
+    <text x='332.0' y='251.0' font-family='Arial, sans-serif' font-size='11' font-weight='700' fill='#38524b'>front</text>
+    <polygon points='402.5,337.0 497.5,337.0 497.5,331.8 492.9,256.2 457.2,255.0 442.8,255.0 407.1,256.2 402.5,331.8' fill='#dbe8e3' stroke='#163d35' stroke-width='2'/>
+  </g>
+</svg>

@@ -6,7 +6,7 @@ metadata:
   status: provisional_prototype
 interface:
   class: S1
-  footprint_mm: { length: 240, width: 64 }
+  footprint_mm: { length: 180, width: 40 }
   required_attachment_stations: [front_left, front_right, rear_left, rear_right]
 mass_properties:
   tare_mass_kg: 0.62
@@ -24,13 +24,13 @@ mass_properties:
 payload:
   type: passengers
   capacity:
-    seated_passengers: 8
-    standing_passengers: 4
+    seated_passengers: 32
+    standing_passengers: 8
   shift_risk: low
   jerk_preference_mps3: 0.5
 envelope:
-  class: S1-P240
-  static_bbox_mm: { length: 240, width: 64, height_above_deck: 54 }
+  class: S1-P180
+  static_bbox_mm: { length: 180, width: 40, height_above_deck: 38.6 }
   minimum_curve_radius_mm: 750
   dynamic_clearance_allowance_mm: 5
 limits:
@@ -48,4 +48,3 @@ route_compatibility:
     - uncertain_mass_or_cg
     - platform_clearance_failed
     - passenger_door_unlatched
-

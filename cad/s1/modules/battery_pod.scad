@@ -3,9 +3,9 @@ include <../s1_parameters.scad>
 build_part = "full";
 
 module service_vents(y) {
-  for (x = [-72, -48, -24, 24, 48, 72])
-    translate([x, y, 28])
-      rounded_box([12, 1.6, 9], 1.2);
+  for (x = [-56, -34, -12, 12, 34, 56])
+    translate([s1_scaled_feature(x), y, s1_scaled_pod_z(21, s1_battery_pod_height, 32)])
+      rounded_box([s1_scaled_feature_size(10), 1.2, s1_scaled_pod_size(7, s1_battery_pod_height, 32)], 1.0);
 }
 
 module battery_pod_full() {
@@ -14,24 +14,24 @@ module battery_pod_full() {
       module_interface_base(cutout_height = 14);
     }
     translate([0, 0, s1_module_interface_height - 0.3])
-      aerodynamic_pod_shell(s1_module_length, s1_module_width, 38, nose = 18, roof_inset = 8, radius = 7);
-    translate([0, 0, 14])
-      rounded_box([150, s1_module_width - 12, 8], 4);
-    service_vents(s1_module_width / 2 - 8);
-    service_vents(-s1_module_width / 2 + 8);
-    cg_marker(47, 14);
+      aerodynamic_pod_shell(s1_module_length, s1_module_width, s1_battery_pod_height, nose = 18, roof_inset = 7, radius = 4);
+    translate([0, 0, s1_scaled_pod_z(12, s1_battery_pod_height, 32)])
+      rounded_box([s1_scaled_feature_size(128), s1_module_width - 10, s1_scaled_pod_size(6, s1_battery_pod_height, 32)], 3);
+    service_vents(s1_module_width / 2 - 5.2);
+    service_vents(-s1_module_width / 2 + 5.2);
+    cg_marker(s1_module_interface_height + s1_battery_pod_height + 0.2, 11);
   }
 }
 
 module battery_pod_part() {
   if (build_part == "front")
     difference() {
-      render(convexity = 10) intersection() { battery_pod_full(); split_front_clip(s1_module_length, 110, 120); }
+      render(convexity = 10) intersection() { battery_pod_full(); split_front_clip(s1_module_length, s1_module_width + 30, s1_module_interface_height + s1_battery_pod_height + 70); }
       split_alignment_sockets("front", z = 0.5);
     }
   else if (build_part == "rear")
     difference() {
-      render(convexity = 10) intersection() { battery_pod_full(); split_rear_clip(s1_module_length, 110, 120); }
+      render(convexity = 10) intersection() { battery_pod_full(); split_rear_clip(s1_module_length, s1_module_width + 30, s1_module_interface_height + s1_battery_pod_height + 70); }
       split_alignment_sockets("rear", z = 0.5);
     }
   else

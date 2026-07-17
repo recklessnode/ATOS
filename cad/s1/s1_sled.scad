@@ -7,19 +7,19 @@ module s1_sled_core() {
     union() {
       linear_extrude(height = s1_sled_height)
         polygon(points = [
-          [-s1_length_over_coupler_faces / 2, 0],
+          [-s1_sled_body_length / 2, 0],
           [-s1_structural_deck_length / 2, -s1_sled_width / 2],
           [s1_structural_deck_length / 2, -s1_sled_width / 2],
-          [s1_length_over_coupler_faces / 2, 0],
+          [s1_sled_body_length / 2, 0],
           [s1_structural_deck_length / 2, s1_sled_width / 2],
           [-s1_structural_deck_length / 2, s1_sled_width / 2]
         ]);
       translate([0, 0, s1_sled_height])
-        rounded_box([s1_structural_deck_length, s1_sled_width - 6, 3], 8);
+        rounded_box([s1_structural_deck_length, s1_sled_width - 5, 2.6], 5);
       translate([0, s1_sled_width / 2 - 4, s1_sled_height + 2])
-        rounded_box([s1_structural_deck_length - 20, 5, 5], 2);
+        rounded_box([s1_structural_deck_length - 20, 4, 4], 1.6);
       translate([0, -s1_sled_width / 2 + 4, s1_sled_height + 2])
-        rounded_box([s1_structural_deck_length - 20, 5, 5], 2);
+        rounded_box([s1_structural_deck_length - 20, 4, 4], 1.6);
     }
 
     translate([0, 0, s1_sled_height + 1])
@@ -37,20 +37,20 @@ module s1_sled_core() {
 module s1_sled_detail() {
   union() {
     s1_sled_core();
-    centerline_marks(s1_structural_deck_length - 12, s1_sled_width - 12, s1_sled_height + 3.5);
-    cg_marker(s1_sled_height + 4.1, 20);
+    centerline_marks(s1_structural_deck_length - 12, s1_sled_width - 10, s1_sled_height + 3.2);
+    cg_marker(s1_sled_height + 3.8, 16);
     module_attachment_positions()
-      translate([0, 0, s1_sled_height + 3.2])
-        cylinder(h = 1.2, r = 4.2);
+      translate([0, 0, s1_sled_height + 2.8])
+        cylinder(h = 1.0, r = 3.2);
     support_node_positions()
-      translate([0, 0, -1.2])
-        rounded_box([22, 12, 1.2], 2);
+      translate([0, 0, -1.0])
+        rounded_box([18, 8, 1.0], 1.5);
     translate([-s1_coupler_pivot_spacing / 2, 0, s1_sled_height / 2])
       rotate([90, 0, 0])
-        cylinder(h = s1_sled_width + 5, r = 2.2, center = true);
+        cylinder(h = s1_stabilization_envelope_width, r = 1.8, center = true);
     translate([s1_coupler_pivot_spacing / 2, 0, s1_sled_height / 2])
       rotate([90, 0, 0])
-        cylinder(h = s1_sled_width + 5, r = 2.2, center = true);
+        cylinder(h = s1_stabilization_envelope_width, r = 1.8, center = true);
   }
 }
 
@@ -59,7 +59,7 @@ module s1_sled_part() {
     difference() {
       render(convexity = 10) intersection() {
         s1_sled_detail();
-        split_front_clip(s1_length_over_coupler_faces, 120, 90);
+        split_front_clip(s1_sled_body_length, s1_stabilization_envelope_width + 40, s1_sled_height + 70);
       }
       split_alignment_sockets("front", z = 1.5);
     }
@@ -67,7 +67,7 @@ module s1_sled_part() {
     difference() {
       render(convexity = 10) intersection() {
         s1_sled_detail();
-        split_rear_clip(s1_length_over_coupler_faces, 120, 90);
+        split_rear_clip(s1_sled_body_length, s1_stabilization_envelope_width + 40, s1_sled_height + 70);
       }
       split_alignment_sockets("rear", z = 1.5);
     }

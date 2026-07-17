@@ -1,54 +1,122 @@
 // Shared S1 prototype parameters.
-// Units are millimeters. Values are provisional fit/geometry defaults.
+// Units are millimeters. Full-size references are divided by s1_scale_ratio.
+// Manufacturing values remain model-space printer defaults and are not blindly scaled.
 
 $fn = 32;
 
-s1_length_over_coupler_faces = 320;
-s1_structural_deck_length = 280;
-s1_sled_width = 72;
-s1_sled_height = 14;
-s1_deck_height_above_g0 = 30;
-s1_wall_thickness = 2.4;
-s1_corner_radius = 6;
+s1_scale_ratio = 87.1;
+s1_project_scale = s1_scale_ratio;
+
+s1_full_length_over_coupler_faces_mm = 27872;
+s1_full_sled_body_length_mm = 26130;
+s1_full_structural_deck_length_mm = 24910.6;
+s1_full_sled_width_mm = 3658.2;
+s1_full_stabilization_envelope_width_mm = 4180.8;
+s1_full_sled_height_mm = 871;
+s1_full_deck_height_above_g0_mm = 1045.2;
+s1_full_module_length_mm = 15678;
+s1_full_module_width_mm = 3484;
+s1_full_mount_x_mm = 6097;
+s1_full_mount_y_mm = 1350.05;
+s1_full_coupler_drawbar_length_mm = 1742;
+s1_full_ballast_pocket_length_mm = 2090.4;
+s1_full_ballast_pocket_width_mm = 871;
+s1_full_ballast_pocket_depth_mm = 348.4;
+s1_full_ballast_channel_length_mm = 7142.2;
+s1_full_ballast_channel_width_mm = 696.8;
+s1_full_ballast_channel_depth_mm = 348.4;
+s1_full_support_node_x_mm = 15329.6;
+s1_full_support_node_y_mm = 2613;
+s1_full_ballast_pocket_x_mm = 4529.2;
+s1_full_ballast_pocket_y_mm = 871;
+s1_full_commuter_pod_height_mm = 2961.4;
+s1_full_overnight_pod_height_mm = 3484;
+s1_full_battery_pod_height_mm = 2787.2;
+s1_full_open_bin_height_mm = 2787.2;
+s1_full_ballast_module_height_mm = 4006.6;
+
+function s1_model_mm(full_size_mm) = full_size_mm / s1_scale_ratio;
+function s1_scaled_feature(value) = value * s1_module_length / 180;
+function s1_scaled_feature_size(value, minimum = s1_min_feature) = max(value * s1_module_length / 180, minimum);
+function s1_scaled_pod_z(value, selected_height, baseline_height) = s1_module_interface_height + (value - s1_module_interface_height) * selected_height / baseline_height;
+function s1_scaled_pod_size(value, selected_height, baseline_height, minimum = s1_min_feature) = max(value * selected_height / baseline_height, minimum);
+
+s1_length_over_coupler_faces = s1_model_mm(s1_full_length_over_coupler_faces_mm);
+s1_sled_body_length = s1_model_mm(s1_full_sled_body_length_mm);
+s1_structural_deck_length = s1_model_mm(s1_full_structural_deck_length_mm);
+s1_sled_width = s1_model_mm(s1_full_sled_width_mm);
+s1_stabilization_envelope_width = s1_model_mm(s1_full_stabilization_envelope_width_mm);
+s1_sled_height = s1_model_mm(s1_full_sled_height_mm);
+s1_deck_height_above_g0 = s1_model_mm(s1_full_deck_height_above_g0_mm);
+s1_wall_thickness = 1.8;
+s1_corner_radius = 4;
 s1_printer_tolerance = 0.35;
 s1_min_feature = 1.2;
 
-s1_module_length = 240;
-s1_module_width = 64;
-s1_module_interface_height = 5;
-s1_module_corner_radius = 7;
+s1_module_length = s1_model_mm(s1_full_module_length_mm);
+s1_module_width = s1_model_mm(s1_full_module_width_mm);
+s1_module_interface_height = 4;
+s1_module_corner_radius = 4;
 
-s1_mount_x = 90;
-s1_mount_y = 24;
-s1_mount_pin_diameter = 5;
+s1_mount_x = s1_model_mm(s1_full_mount_x_mm);
+s1_mount_y = s1_model_mm(s1_full_mount_y_mm);
+s1_mount_pin_diameter = 3.4;
 s1_mount_clearance = 0.35;
-s1_latch_slot_length = 18;
-s1_latch_slot_width = 6;
+s1_latch_slot_length = 12;
+s1_latch_slot_width = 3.8;
 
-s1_coupler_pivot_spacing = 280;
-s1_coupler_drawbar_length = 28;
-s1_coupler_pivot_diameter = 8;
+s1_coupler_drawbar_length = s1_model_mm(s1_full_coupler_drawbar_length_mm);
+s1_coupler_front_face_offset = s1_coupler_drawbar_length + 14.5;
+s1_coupler_rear_face_offset = s1_coupler_drawbar_length + 13;
+s1_coupler_pivot_spacing = s1_length_over_coupler_faces - s1_coupler_front_face_offset - s1_coupler_rear_face_offset;
+s1_coupler_pivot_diameter = 5.5;
 s1_coupler_yaw_normal_deg = 15;
 s1_coupler_yaw_hard_stop_deg = 18;
-s1_coupler_vertical_play = 1.5;
+s1_coupler_vertical_play = 1.0;
 
-s1_ballast_pocket_length = 36;
-s1_ballast_pocket_width = 18;
-s1_ballast_pocket_depth = 6;
-s1_ballast_channel_length = 108;
-s1_ballast_channel_width = 14;
-s1_ballast_channel_depth = 5;
+s1_ballast_pocket_length = s1_model_mm(s1_full_ballast_pocket_length_mm);
+s1_ballast_pocket_width = s1_model_mm(s1_full_ballast_pocket_width_mm);
+s1_ballast_pocket_depth = s1_model_mm(s1_full_ballast_pocket_depth_mm);
+s1_ballast_channel_length = s1_model_mm(s1_full_ballast_channel_length_mm);
+s1_ballast_channel_width = s1_model_mm(s1_full_ballast_channel_width_mm);
+s1_ballast_channel_depth = s1_model_mm(s1_full_ballast_channel_depth_mm);
 
-s1_split_key_length = 14;
-s1_split_key_width = 8;
-s1_split_key_height = 5;
+s1_split_key_length = 10;
+s1_split_key_width = 5;
+s1_split_key_height = 3;
 s1_split_plane_x = 0;
 
-s1_support_node_x = 180;
-s1_support_node_y = 50;
+s1_support_node_x = s1_model_mm(s1_full_support_node_x_mm);
+s1_support_node_y = s1_model_mm(s1_full_support_node_y_mm);
 
 s1_bed_x = 220;
 s1_bed_y = 220;
+s1_h2c_single_nozzle_bed_x = 305;
+s1_h2c_single_nozzle_bed_y = 320;
+s1_h2c_dual_nozzle_bed_x = 300;
+s1_h2c_dual_nozzle_bed_y = 320;
+
+s1_iso_container_width = s1_model_mm(2438);
+s1_iso_container_height = s1_model_mm(2591);
+s1_iso_high_cube_container_height = s1_model_mm(2896);
+s1_iso_40ft_length = s1_model_mm(12192);
+s1_iso_20ft_length = s1_model_mm(6058);
+s1_container_fit_clearance_length = 1.5;
+s1_container_fit_clearance_width = 1.2;
+s1_container_retention_clearance = 4;
+s1_container_retention_rail_height = 2.4;
+s1_container_retention_rail_width = 2.0;
+s1_container_20ft_gap = 4;
+
+s1_commuter_pod_height = s1_model_mm(s1_full_commuter_pod_height_mm);
+s1_overnight_pod_height = s1_model_mm(s1_full_overnight_pod_height_mm);
+s1_battery_pod_height = s1_model_mm(s1_full_battery_pod_height_mm);
+s1_container_adapter_height = 30;
+s1_open_bin_height = s1_model_mm(s1_full_open_bin_height_mm);
+s1_ballast_module_height = s1_model_mm(s1_full_ballast_module_height_mm);
+s1_split_key_y = 12;
+s1_ballast_pocket_x = s1_model_mm(s1_full_ballast_pocket_x_mm);
+s1_ballast_pocket_y = s1_model_mm(s1_full_ballast_pocket_y_mm);
 
 module rounded_box(size, radius = 3) {
   r = min(radius, min(size[0], size[1]) / 2 - 0.01);
@@ -83,8 +151,8 @@ module support_node_positions() {
 }
 
 module ballast_pocket_positions() {
-  for (x = [-70, 70])
-    for (y = [-20, 20])
+  for (x = [-s1_ballast_pocket_x, s1_ballast_pocket_x])
+    for (y = [-s1_ballast_pocket_y, s1_ballast_pocket_y])
       translate([x, y, 0]) children();
 }
 
@@ -127,7 +195,7 @@ module split_rear_clip(length, width = 180, height = 180) {
 }
 
 module split_alignment_male(z = 2, clearance = 0) {
-  for (y = [-18, 18])
+  for (y = [-s1_split_key_y, s1_split_key_y])
     translate([
       -s1_split_key_length + clearance,
       y - s1_split_key_width / 2 + clearance,
@@ -149,7 +217,7 @@ module split_alignment_sockets(side = "front", z = 0.4) {
   socket_length = s1_split_key_length + 10;
   socket_width = s1_split_key_width + 2 * s1_printer_tolerance;
   x_center = side == "rear" ? -socket_length / 2 + 0.4 : socket_length / 2 - 0.4;
-  for (y = [-18, 18])
+  for (y = [-s1_split_key_y, s1_split_key_y])
     translate([x_center, y, -0.05])
       rounded_box([socket_length, socket_width, socket_depth + 0.05], 1.1);
 }

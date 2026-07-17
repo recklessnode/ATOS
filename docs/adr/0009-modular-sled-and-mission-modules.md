@@ -8,7 +8,7 @@ Accepted
 
 ATOS vehicles must carry passengers, containers, bulk cargo, batteries, maintenance equipment, and future special-purpose payloads without creating a new vehicle architecture for every payload. Earlier ADRs define software-defined consists, stations as routers, energy logistics, and a generalized physical entity contract. Issue #17 adds the first printable S1 prototype kit, so the sled/module boundary needs to be explicit before CAD, manifests, and route admission checks harden around implicit assumptions.
 
-The current S1 prototype uses a 320 mm sled envelope, a 240 x 64 mm module footprint, four module attachment stations, and a target module mass up to 1.5 kg. These are prototype defaults, not production limits.
+The S1 prototype uses a permanent sled, a shared mission-module footprint, four module attachment stations, and a target module mass up to 1.5 kg. Issue #17 introduced the first printable defaults; Issue #21 recalibrates the current dimensional basis to a 320 mm length-over-coupler-faces assembly, a 300 mm printed sled body, and a 180 x 40 mm module footprint. These are prototype defaults, not production limits.
 
 ## Decision
 
@@ -60,7 +60,7 @@ These risks are controlled by visible datums, machine-readable manifests, conser
 ## Related documents
 
 - [Modular Sled Platform](../architecture/modular-sled-platform.md)
+- [S1 1:87 Dimensional Basis](../engineering/s1-1-87-dimensional-basis.md)
 - [Vehicles, Consists, and Routes](0004-software-defined-consists.md)
 - [Generalized Physical World Contract](0008-generalized-physical-world-contract.md)
 - [S1 Vehicle Dynamics and Loading Envelope](../engineering/s1-vehicle-dynamics-loading-envelope.md)
-

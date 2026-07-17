@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="420" viewBox="0 0 640 420" role="img">
+  <title>Front coupler STL-derived preview</title>
+  <rect width='640' height='420' fill='#f6f8f7'/>
+  <text x='28' y='34' font-family='Arial, sans-serif' font-size='20' font-weight='700' fill='#1e2b27'>Front coupler</text>
+  <text x='28' y='58' font-family='Arial, sans-serif' font-size='12' fill='#536862'>s1_coupler_front.stl</text>
+  <text x='28' y='76' font-family='Arial, sans-serif' font-size='12' fill='#536862'>bbox 57.79 x 14.00 x 7.60 mm</text>
+  <g aria-label='isometric projection'>
+    <rect x='28.0' y='90.0' width='260.0' height='116.0' rx='8' fill='#ffffff' stroke='#c7d4ce'/>
+    <text x='40.0' y='106.0' font-family='Arial, sans-serif' font-size='11' font-weight='700' fill='#38524b'>isometric</text>
+    <polygon points='82.1,182.3 82.6,184.2 84.0,186.0 86.2,187.7 89.2,189.2 92.8,190.4 96.9,191.3 101.4,191.8 106.1,192.0 110.8,191.8 115.3,191.3 119.5,190.4 123.1,189.2 231.5,136.4 232.1,136.1 232.6,135.7 233.0,135.3 233.1,134.8 233.9,118.4 233.8,117.4 233.5,116.3 233.1,115.2 232.5,114.1 231.8,113.2 231.0,112.4 230.2,111.7 229.3,111.3 228.4,111.0 227.5,110.9 207.3,110.0 206.2,110.0 205.2,110.0 204.1,110.2 203.2,110.4 202.4,110.6 183.4,118.3 89.2,161.4 86.2,162.9 84.0,164.6 82.6,166.4 82.1,168.3' fill='#dbe8e3' stroke='#163d35' stroke-width='2'/>
+  </g>
+  <g aria-label='top projection'>
+    <rect x='320.0' y='90.0' width='260.0' height='116.0' rx='8' fill='#ffffff' stroke='#c7d4ce'/>
+    <text x='332.0' y='106.0' font-family='Arial, sans-serif' font-size='11' font-weight='700' fill='#38524b'>top</text>
+    <polygon points='332.0,151.0 332.6,156.6 334.2,161.9 336.8,166.9 340.4,171.2 344.7,174.8 349.6,177.4 355.0,179.0 360.6,179.6 547.2,175.5 548.4,175.4 549.7,175.0 550.8,174.4 551.8,173.6 568.0,158.8 568.0,143.2 551.8,128.4 550.8,127.6 549.7,127.0 548.4,126.6 547.2,126.5 360.6,122.4 355.0,123.0 349.6,124.6 344.7,127.2 340.4,130.8 336.8,135.1 334.2,140.1 332.6,145.4' fill='#dbe8e3' stroke='#163d35' stroke-width='2'/>
+  </g>
+  <g aria-label='side projection'>
+    <rect x='28.0' y='235.0' width='260.0' height='116.0' rx='8' fill='#ffffff' stroke='#c7d4ce'/>
+    <text x='40.0' y='251.0' font-family='Arial, sans-serif' font-size='11' font-weight='700' fill='#38524b'>side</text>
+    <polygon points='40.0,300.9 68.6,311.1 255.6,311.5 276.0,311.5 276.0,296.0 261.7,290.7 97.2,280.5 40.0,280.5' fill='#dbe8e3' stroke='#163d35' stroke-width='2'/>
+  </g>
+  <g aria-label='front projection'>
+    <rect x='320.0' y='235.0' width='260.0' height='116.0' rx='8' fill='#ffffff' stroke='#c7d4ce'/>
+    <text x='332.0' y='251.0' font-family='Arial, sans-serif' font-size='11' font-weight='700' fill='#38524b'>front</text>
+    <polygon points='374.5,308.9 385.3,335.9 450.0,337.0 514.7,335.9 525.5,308.9 525.5,255.0 374.5,255.0' fill='#dbe8e3' stroke='#163d35' stroke-width='2'/>
+  </g>
+</svg>
