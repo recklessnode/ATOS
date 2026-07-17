@@ -1,0 +1,51 @@
+schema_version: atos.s1.module.v0
+kind: MissionModule
+metadata:
+  id: module-s1-commuter-prototype
+  display_name: S1 commuter passenger pod
+  status: provisional_prototype
+interface:
+  class: S1
+  footprint_mm: { length: 240, width: 64 }
+  required_attachment_stations: [front_left, front_right, rear_left, rear_right]
+mass_properties:
+  tare_mass_kg: 0.62
+  max_payload_mass_kg: 0.72
+  max_total_module_mass_kg: 1.34
+  declared_cg_mm:
+    x: 0
+    y: 0
+    z_above_deck: 37
+  uncertainty:
+    mass_kg: 0.03
+    x_mm: 2
+    y_mm: 1
+    z_mm: 5
+payload:
+  type: passengers
+  capacity:
+    seated_passengers: 8
+    standing_passengers: 4
+  shift_risk: low
+  jerk_preference_mps3: 0.5
+envelope:
+  class: S1-P240
+  static_bbox_mm: { length: 240, width: 64, height_above_deck: 54 }
+  minimum_curve_radius_mm: 750
+  dynamic_clearance_allowance_mm: 5
+limits:
+  max_lateral_acceleration_mps2: 0.3
+  max_longitudinal_acceleration_mps2: 0.4
+  max_braking_deceleration_mps2: 0.8
+power:
+  normal_watts: 2.0
+  peak_watts: 4.0
+  thermal_class: occupied_pod_low_power
+route_compatibility:
+  allowed_service_modes: [normal, instrumented_test]
+  forbidden_conditions:
+    - attachment_not_seated
+    - uncertain_mass_or_cg
+    - platform_clearance_failed
+    - passenger_door_unlatched
+

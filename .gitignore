@@ -1,6 +1,8 @@
 node_modules/
 dist/
 *.tsbuildinfo
+__pycache__/
+*.pyc
 apps/*/dist/
 apps/*/node_modules/
 apps/*/coverage/

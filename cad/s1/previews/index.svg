@@ -1,0 +1,96 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="820" height="752" viewBox="0 0 820 752" role="img">
+  <title>S1 major CAD part preview contact sheet</title>
+  <rect width='100%' height='100%' fill='#f6f8f7'/>
+  <text x='28' y='36' font-family='Arial, sans-serif' font-size='22' font-weight='700' fill='#1e2b27'>S1 major CAD part previews</text>
+  <text x='28' y='60' font-family='Arial, sans-serif' font-size='12' fill='#536862'>Each card links to an STL-derived SVG preview generated from mesh vertices.</text>
+  <a href='s1_sled_body.svg'>
+    <rect x='28' y='82' width='222' height='104' rx='8' fill='#ffffff' stroke='#c7d4ce'/>
+    <text x='40' y='106' font-family='Arial, sans-serif' font-size='13' font-weight='700' fill='#1e2b27'>S1 sled body</text>
+    <text x='40' y='129' font-family='Arial, sans-serif' font-size='11' fill='#536862'>s1_sled_body.stl</text>
+    <text x='40' y='148' font-family='Arial, sans-serif' font-size='11' fill='#536862'>bbox 320.00 x 77.00 x 22.20 mm</text>
+  </a>
+  <a href='s1_interface_plate.svg'>
+    <rect x='278' y='82' width='222' height='104' rx='8' fill='#ffffff' stroke='#c7d4ce'/>
+    <text x='290' y='106' font-family='Arial, sans-serif' font-size='13' font-weight='700' fill='#1e2b27'>Interface plate</text>
+    <text x='290' y='129' font-family='Arial, sans-serif' font-size='11' fill='#536862'>s1_interface_plate.stl</text>
+    <text x='290' y='148' font-family='Arial, sans-serif' font-size='11' fill='#536862'>bbox 240.00 x 64.00 x 8.00 mm</text>
+  </a>
+  <a href='s1_coupler_front.svg'>
+    <rect x='528' y='82' width='222' height='104' rx='8' fill='#ffffff' stroke='#c7d4ce'/>
+    <text x='540' y='106' font-family='Arial, sans-serif' font-size='13' font-weight='700' fill='#1e2b27'>Front coupler</text>
+    <text x='540' y='129' font-family='Arial, sans-serif' font-size='11' fill='#536862'>s1_coupler_front.stl</text>
+    <text x='540' y='148' font-family='Arial, sans-serif' font-size='11' fill='#536862'>bbox 55.00 x 18.00 x 9.20 mm</text>
+  </a>
+  <a href='s1_coupler_rear.svg'>
+    <rect x='28' y='210' width='222' height='104' rx='8' fill='#ffffff' stroke='#c7d4ce'/>
+    <text x='40' y='234' font-family='Arial, sans-serif' font-size='13' font-weight='700' fill='#1e2b27'>Rear coupler</text>
+    <text x='40' y='257' font-family='Arial, sans-serif' font-size='11' fill='#536862'>s1_coupler_rear.stl</text>
+    <text x='40' y='276' font-family='Arial, sans-serif' font-size='11' fill='#536862'>bbox 54.00 x 20.00 x 9.00 mm</text>
+  </a>
+  <a href='cg_test_fixture.svg'>
+    <rect x='278' y='210' width='222' height='104' rx='8' fill='#ffffff' stroke='#c7d4ce'/>
+    <text x='290' y='234' font-family='Arial, sans-serif' font-size='13' font-weight='700' fill='#1e2b27'>CG test fixture</text>
+    <text x='290' y='257' font-family='Arial, sans-serif' font-size='11' fill='#536862'>cg_test_fixture.stl</text>
+    <text x='290' y='276' font-family='Arial, sans-serif' font-size='11' fill='#536862'>bbox 214.00 x 104.00 x 16.00 mm</text>
+  </a>
+  <a href='coupler_angle_gauge.svg'>
+    <rect x='528' y='210' width='222' height='104' rx='8' fill='#ffffff' stroke='#c7d4ce'/>
+    <text x='540' y='234' font-family='Arial, sans-serif' font-size='13' font-weight='700' fill='#1e2b27'>Coupler angle gauge</text>
+    <text x='540' y='257' font-family='Arial, sans-serif' font-size='11' fill='#536862'>coupler_angle_gauge.stl</text>
+    <text x='540' y='276' font-family='Arial, sans-serif' font-size='11' fill='#536862'>bbox 169.32 x 106.74 x 8.00 mm</text>
+  </a>
+  <a href='route_clearance_gauge.svg'>
+    <rect x='28' y='338' width='222' height='104' rx='8' fill='#ffffff' stroke='#c7d4ce'/>
+    <text x='40' y='362' font-family='Arial, sans-serif' font-size='13' font-weight='700' fill='#1e2b27'>Route clearance gauge</text>
+    <text x='40' y='385' font-family='Arial, sans-serif' font-size='11' fill='#536862'>route_clearance_gauge.stl</text>
+    <text x='40' y='404' font-family='Arial, sans-serif' font-size='11' fill='#536862'>bbox 160.00 x 116.00 x 36.00 mm</text>
+  </a>
+  <a href='commuter_pod.svg'>
+    <rect x='278' y='338' width='222' height='104' rx='8' fill='#ffffff' stroke='#c7d4ce'/>
+    <text x='290' y='362' font-family='Arial, sans-serif' font-size='13' font-weight='700' fill='#1e2b27'>Commuter Pod</text>
+    <text x='290' y='385' font-family='Arial, sans-serif' font-size='11' fill='#536862'>commuter_pod.stl</text>
+    <text x='290' y='404' font-family='Arial, sans-serif' font-size='11' fill='#536862'>bbox 240.00 x 64.00 x 52.40 mm</text>
+  </a>
+  <a href='overnight_pod.svg'>
+    <rect x='528' y='338' width='222' height='104' rx='8' fill='#ffffff' stroke='#c7d4ce'/>
+    <text x='540' y='362' font-family='Arial, sans-serif' font-size='13' font-weight='700' fill='#1e2b27'>Overnight Pod</text>
+    <text x='540' y='385' font-family='Arial, sans-serif' font-size='11' fill='#536862'>overnight_pod.stl</text>
+    <text x='540' y='404' font-family='Arial, sans-serif' font-size='11' fill='#536862'>bbox 240.00 x 64.00 x 60.40 mm</text>
+  </a>
+  <a href='battery_pod.svg'>
+    <rect x='28' y='466' width='222' height='104' rx='8' fill='#ffffff' stroke='#c7d4ce'/>
+    <text x='40' y='490' font-family='Arial, sans-serif' font-size='13' font-weight='700' fill='#1e2b27'>Battery Pod</text>
+    <text x='40' y='513' font-family='Arial, sans-serif' font-size='11' fill='#536862'>battery_pod.stl</text>
+    <text x='40' y='532' font-family='Arial, sans-serif' font-size='11' fill='#536862'>bbox 240.00 x 64.00 x 47.40 mm</text>
+  </a>
+  <a href='container_40_adapter.svg'>
+    <rect x='278' y='466' width='222' height='104' rx='8' fill='#ffffff' stroke='#c7d4ce'/>
+    <text x='290' y='490' font-family='Arial, sans-serif' font-size='13' font-weight='700' fill='#1e2b27'>Container 40 Adapter</text>
+    <text x='290' y='513' font-family='Arial, sans-serif' font-size='11' fill='#536862'>container_40_adapter.stl</text>
+    <text x='290' y='532' font-family='Arial, sans-serif' font-size='11' fill='#536862'>bbox 240.00 x 64.00 x 48.40 mm</text>
+  </a>
+  <a href='container_20_twin_adapter.svg'>
+    <rect x='528' y='466' width='222' height='104' rx='8' fill='#ffffff' stroke='#c7d4ce'/>
+    <text x='540' y='490' font-family='Arial, sans-serif' font-size='13' font-weight='700' fill='#1e2b27'>Container 20 Twin Adapter</text>
+    <text x='540' y='513' font-family='Arial, sans-serif' font-size='11' fill='#536862'>container_20_twin_adapter.stl</text>
+    <text x='540' y='532' font-family='Arial, sans-serif' font-size='11' fill='#536862'>bbox 240.00 x 64.00 x 49.00 mm</text>
+  </a>
+  <a href='open_bin.svg'>
+    <rect x='28' y='594' width='222' height='104' rx='8' fill='#ffffff' stroke='#c7d4ce'/>
+    <text x='40' y='618' font-family='Arial, sans-serif' font-size='13' font-weight='700' fill='#1e2b27'>Open Bin</text>
+    <text x='40' y='641' font-family='Arial, sans-serif' font-size='11' fill='#536862'>open_bin.stl</text>
+    <text x='40' y='660' font-family='Arial, sans-serif' font-size='11' fill='#536862'>bbox 240.00 x 64.00 x 48.40 mm</text>
+  </a>
+  <a href='ballast_test_module.svg'>
+    <rect x='278' y='594' width='222' height='104' rx='8' fill='#ffffff' stroke='#c7d4ce'/>
+    <text x='290' y='618' font-family='Arial, sans-serif' font-size='13' font-weight='700' fill='#1e2b27'>Ballast Test Module</text>
+    <text x='290' y='641' font-family='Arial, sans-serif' font-size='11' fill='#536862'>ballast_test_module.stl</text>
+    <text x='290' y='660' font-family='Arial, sans-serif' font-size='11' fill='#536862'>bbox 240.00 x 64.00 x 63.40 mm</text>
+  </a>
+  <a href='split_alignment_keys.svg'>
+    <rect x='528' y='594' width='222' height='104' rx='8' fill='#ffffff' stroke='#c7d4ce'/>
+    <text x='540' y='618' font-family='Arial, sans-serif' font-size='13' font-weight='700' fill='#1e2b27'>Split alignment keys</text>
+    <text x='540' y='641' font-family='Arial, sans-serif' font-size='11' fill='#536862'>split_alignment_keys.stl</text>
+    <text x='540' y='660' font-family='Arial, sans-serif' font-size='11' fill='#536862'>bbox 44.00 x 23.60 x 4.60 mm</text>
+  </a>
+</svg>
