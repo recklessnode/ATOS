@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="420" viewBox="0 0 640 420" role="img">
+  <title>Coupler angle gauge STL-derived preview</title>
+  <rect width='640' height='420' fill='#f6f8f7'/>
+  <text x='28' y='34' font-family='Arial, sans-serif' font-size='20' font-weight='700' fill='#1e2b27'>Coupler angle gauge</text>
+  <text x='28' y='58' font-family='Arial, sans-serif' font-size='12' fill='#536862'>coupler_angle_gauge.stl</text>
+  <text x='28' y='76' font-family='Arial, sans-serif' font-size='12' fill='#536862'>bbox 169.32 x 106.74 x 8.00 mm</text>
+  <g aria-label='isometric projection'>
+    <rect x='28.0' y='90.0' width='260.0' height='116.0' rx='8' fill='#ffffff' stroke='#c7d4ce'/>
+    <text x='40.0' y='106.0' font-family='Arial, sans-serif' font-size='11' font-weight='700' fill='#38524b'>isometric</text>
+    <polygon points='47.9,159.9 50.1,168.7 56.5,177.3 66.8,185.1 80.8,192.0 268.1,140.2 268.1,139.0 266.0,137.6 239.7,123.3 222.7,117.7 203.3,113.5 182.2,110.9 160.3,110.0 138.3,110.9 117.3,113.5 97.8,117.7 80.8,123.3 66.8,130.2 56.5,138.0 50.1,146.6 47.9,155.4' fill='#dbe8e3' stroke='#163d35' stroke-width='2'/>
+  </g>
+  <g aria-label='top projection'>
+    <rect x='320.0' y='90.0' width='260.0' height='116.0' rx='8' fill='#ffffff' stroke='#c7d4ce'/>
+    <text x='332.0' y='106.0' font-family='Arial, sans-serif' font-size='11' font-weight='700' fill='#38524b'>top</text>
+    <polygon points='385.0,173.0 514.4,192.0 515.0,189.8 515.0,156.2 514.4,154.0 492.5,128.4 483.0,120.6 472.1,114.8 460.2,111.2 448.0,110.0 435.7,111.2 423.8,114.8 413.0,120.6 403.4,128.4 395.6,138.0 389.8,148.9 386.2,160.7' fill='#dbe8e3' stroke='#163d35' stroke-width='2'/>
+  </g>
+  <g aria-label='side projection'>
+    <rect x='28.0' y='235.0' width='260.0' height='116.0' rx='8' fill='#ffffff' stroke='#c7d4ce'/>
+    <text x='40.0' y='251.0' font-family='Arial, sans-serif' font-size='11' font-weight='700' fill='#38524b'>side</text>
+    <polygon points='40.0,301.6 268.6,301.6 276.0,294.6 276.0,290.4 218.4,290.4 40.0,296.0' fill='#dbe8e3' stroke='#163d35' stroke-width='2'/>
+  </g>
+  <g aria-label='front projection'>
+    <rect x='320.0' y='235.0' width='260.0' height='116.0' rx='8' fill='#ffffff' stroke='#c7d4ce'/>
+    <text x='332.0' y='251.0' font-family='Arial, sans-serif' font-size='11' font-weight='700' fill='#38524b'>front</text>
+    <polygon points='332.0,289.4 386.7,304.8 568.0,304.8 568.0,296.0 441.4,287.2 332.0,287.2' fill='#dbe8e3' stroke='#163d35' stroke-width='2'/>
+  </g>
+</svg>

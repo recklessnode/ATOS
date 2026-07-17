@@ -59,7 +59,7 @@ module s1_sled_part() {
     difference() {
       render(convexity = 10) intersection() {
         s1_sled_detail();
-        split_front_clip(s1_sled_body_length, 80, 70);
+        split_front_clip(s1_sled_body_length, s1_stabilization_envelope_width + 40, s1_sled_height + 70);
       }
       split_alignment_sockets("front", z = 1.5);
     }
@@ -67,7 +67,7 @@ module s1_sled_part() {
     difference() {
       render(convexity = 10) intersection() {
         s1_sled_detail();
-        split_rear_clip(s1_sled_body_length, 80, 70);
+        split_rear_clip(s1_sled_body_length, s1_stabilization_envelope_width + 40, s1_sled_height + 70);
       }
       split_alignment_sockets("rear", z = 1.5);
     }

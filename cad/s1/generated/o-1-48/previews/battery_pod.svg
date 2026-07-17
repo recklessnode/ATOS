@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="420" viewBox="0 0 640 420" role="img">
+  <title>Battery Pod STL-derived preview</title>
+  <rect width='640' height='420' fill='#f6f8f7'/>
+  <text x='28' y='34' font-family='Arial, sans-serif' font-size='20' font-weight='700' fill='#1e2b27'>Battery Pod</text>
+  <text x='28' y='58' font-family='Arial, sans-serif' font-size='12' fill='#536862'>battery_pod.stl</text>
+  <text x='28' y='76' font-family='Arial, sans-serif' font-size='12' fill='#536862'>bbox 326.62 x 72.58 x 62.67 mm</text>
+  <g aria-label='isometric projection'>
+    <rect x='28.0' y='90.0' width='260.0' height='116.0' rx='8' fill='#ffffff' stroke='#c7d4ce'/>
+    <text x='40.0' y='106.0' font-family='Arial, sans-serif' font-size='11' font-weight='700' fill='#38524b'>isometric</text>
+    <polygon points='85.2,161.1 85.2,161.2 92.7,182.5 92.8,182.5 92.8,182.6 93.0,182.7 115.7,191.9 115.9,191.9 116.1,192.0 116.3,192.0 116.5,192.0 116.7,192.0 116.9,192.0 117.0,191.9 117.2,191.9 223.0,149.1 223.2,149.0 223.2,149.0 223.3,148.9 230.8,123.3 230.8,123.2 230.8,121.9 230.8,121.7 230.3,120.1 230.2,119.8 229.9,119.6 229.5,119.4 207.1,110.4 206.6,110.2 206.1,110.1 205.5,110.0 204.9,110.0 204.3,110.0 203.7,110.1 203.2,110.2 202.7,110.4 86.5,157.3 86.1,157.5 85.8,157.7 85.7,158.0 85.2,159.6 85.2,159.8' fill='#dbe8e3' stroke='#163d35' stroke-width='2'/>
+  </g>
+  <g aria-label='top projection'>
+    <rect x='320.0' y='90.0' width='260.0' height='116.0' rx='8' fill='#ffffff' stroke='#c7d4ce'/>
+    <text x='332.0' y='106.0' font-family='Arial, sans-serif' font-size='11' font-weight='700' fill='#38524b'>top</text>
+    <polygon points='332.0,174.3 332.1,174.9 332.2,175.4 332.5,175.9 332.8,176.4 333.3,176.7 333.8,177.0 334.3,177.2 334.9,177.2 565.1,177.2 565.7,177.2 566.2,177.0 566.7,176.7 567.2,176.4 567.5,175.9 567.8,175.4 567.9,174.9 568.0,174.3 568.0,127.7 567.9,127.1 567.8,126.6 567.5,126.1 567.2,125.6 566.7,125.3 566.2,125.0 565.7,124.8 565.1,124.8 334.9,124.8 334.3,124.8 333.8,125.0 333.3,125.3 332.8,125.6 332.5,126.1 332.2,126.6 332.1,127.1 332.0,127.7' fill='#dbe8e3' stroke='#163d35' stroke-width='2'/>
+  </g>
+  <g aria-label='side projection'>
+    <rect x='28.0' y='235.0' width='260.0' height='116.0' rx='8' fill='#ffffff' stroke='#c7d4ce'/>
+    <text x='40.0' y='251.0' font-family='Arial, sans-serif' font-size='11' font-weight='700' fill='#38524b'>side</text>
+    <polygon points='40.0,318.6 276.0,318.6 276.0,313.8 263.0,274.0 162.0,273.4 154.0,273.4 53.0,274.0 40.0,313.8' fill='#dbe8e3' stroke='#163d35' stroke-width='2'/>
+  </g>
+  <g aria-label='front projection'>
+    <rect x='320.0' y='235.0' width='260.0' height='116.0' rx='8' fill='#ffffff' stroke='#c7d4ce'/>
+    <text x='332.0' y='251.0' font-family='Arial, sans-serif' font-size='11' font-weight='700' fill='#38524b'>front</text>
+    <polygon points='402.5,337.0 497.5,337.0 497.5,328.2 492.9,256.2 457.2,255.0 442.8,255.0 407.1,256.2 402.5,328.2' fill='#dbe8e3' stroke='#163d35' stroke-width='2'/>
+  </g>
+</svg>

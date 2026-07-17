@@ -17,6 +17,36 @@ Conversion:
 
 The design is "HO-world compatible", not a copy of conventional railway proportions. The S1 vehicle may be wider or taller than conventional HO rolling stock where ATOS guideway, stabilization, or payload assumptions justify it, but the basis must be stated.
 
+## Multi-Scale Generation Addendum
+
+The S1 CAD source stores the full-size design dimensions once and derives model dimensions by dividing by `s1_scale_ratio`. HO remains the baseline ATOS world-scale profile, but the generator can render the same full-size design at:
+
+| Profile | Ratio | Output path | Asset policy |
+|---|---:|---|---|
+| N | 1:160 | `cad/s1/generated/n-1-160/` when generated | Supported by command; not committed in this addendum. |
+| HO | 1:87.1 | `cad/s1/generated/ho-1-87/` | Generated assets committed. |
+| O | 1:48 | `cad/s1/generated/o-1-48/` | Generated assets committed. |
+| Custom | user supplied | `cad/s1/generated/<custom-name>/` | Generated on demand after validation. |
+
+The generator command is documented in `cad/s1/README.md`. O-scale is regenerated from OpenSCAD source rather than by scaling finished HO STL files. The HO-to-O multiplier is about 1.815, but manufacturing details are not multiplied blindly.
+
+Scale-dependent geometry includes:
+
+- vehicle length, deck length, body width, stabilization envelope, support-node spacing, module footprint, pod heights, ballast-pocket locations, route-clearance envelope, container reference dimensions, and split clipping windows;
+- derived curve, coupler, overhang, station-clearance, and swept-envelope report values.
+
+Manufacturing parameters remain model-space defaults unless a future profile-specific manufacturing table revises them:
+
+- wall thickness;
+- printer tolerance;
+- mount-pin and latch-slot dimensions;
+- split-key dimensions;
+- container fit clearances;
+- side/end rail thicknesses;
+- minimum feature assumptions.
+
+This separation lets each model scale preserve the same full-size ATOS vehicle while keeping printer-driven details manufacturable. It also means a physical container fit test must use containers purchased for the selected model scale: HO containers for HO assets, O containers for O assets, and so on.
+
 ## Controlling Assumptions
 
 | Item | Full-size assumption | 1:87.1 model dimension | Rationale |
@@ -158,5 +188,6 @@ The generated route-clearance gauge (`cad/s1/stl/route_clearance_gauge.stl`) ref
 ## Follow-Up Notes
 
 - Dispatch, power, and simulation semantics are unchanged. They should consume revised envelopes only after a separate route-admission update if needed.
-- Future CAD work may add optional container-specific shims if measured commercial HO container brands differ materially.
+- Future CAD work may add optional container-specific shims if measured commercial container brands differ materially within a selected scale.
+- Future profile work may add fixture-specific splits for oversized O-scale measurement tools that are validated as STL assets but omitted from H2C 3MF fixture plates.
 - Physical testing must verify actual printer shrinkage, pocket fit, split-key fit, coupler seating, and measured CG before any route limits are strengthened.

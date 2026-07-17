@@ -1,0 +1,491 @@
+{
+  "assets": [
+    {
+      "bbox_mm": [
+        544.376,
+        87.1,
+        25.1458
+      ],
+      "h2c_fit": false,
+      "notes": "Printed sled body; length over coupler faces is validated as an assembly dimension.",
+      "output": "s1_sled_body.stl",
+      "primary_bed_fit": false,
+      "target": "S1 sled body",
+      "watertight": true
+    },
+    {
+      "bbox_mm": [
+        272.18798828125,
+        87.0999984741211,
+        25.14579963684082
+      ],
+      "h2c_fit": true,
+      "notes": "",
+      "output": "s1_sled_body_front_split.stl",
+      "primary_bed_fit": true,
+      "target": "S1 sled body front split",
+      "watertight": true
+    },
+    {
+      "bbox_mm": [
+        272.18798828125,
+        87.0999984741211,
+        25.14579963684082
+      ],
+      "h2c_fit": true,
+      "notes": "",
+      "output": "s1_sled_body_rear_split.stl",
+      "primary_bed_fit": true,
+      "target": "S1 sled body rear split",
+      "watertight": true
+    },
+    {
+      "bbox_mm": [
+        326.624,
+        72.5834,
+        7.0
+      ],
+      "h2c_fit": false,
+      "notes": "Full interface plate is regenerated from profile dimensions.",
+      "output": "s1_interface_plate.stl",
+      "primary_bed_fit": false,
+      "target": "Interface plate",
+      "watertight": true
+    },
+    {
+      "bbox_mm": [
+        163.31199645996094,
+        72.5833969116211,
+        7.0
+      ],
+      "h2c_fit": true,
+      "notes": "",
+      "output": "s1_interface_plate_front_split.stl",
+      "primary_bed_fit": true,
+      "target": "Interface plate front split",
+      "watertight": true
+    },
+    {
+      "bbox_mm": [
+        163.31199645996094,
+        72.5833969116211,
+        7.0
+      ],
+      "h2c_fit": true,
+      "notes": "",
+      "output": "s1_interface_plate_rear_split.stl",
+      "primary_bed_fit": true,
+      "target": "Interface plate rear split",
+      "watertight": true
+    },
+    {
+      "bbox_mm": [
+        57.7917,
+        14.0,
+        7.5999994
+      ],
+      "h2c_fit": true,
+      "notes": "",
+      "output": "s1_coupler_front.stl",
+      "primary_bed_fit": true,
+      "target": "Front coupler",
+      "watertight": true
+    },
+    {
+      "bbox_mm": [
+        56.2917,
+        15.0,
+        7.5
+      ],
+      "h2c_fit": true,
+      "notes": "",
+      "output": "s1_coupler_rear.stl",
+      "primary_bed_fit": true,
+      "target": "Rear coupler",
+      "watertight": true
+    },
+    {
+      "bbox_mm": [
+        353.366,
+        108.4376,
+        16.0
+      ],
+      "h2c_fit": false,
+      "notes": "Preserves profile-derived support-node spacing.",
+      "output": "cg_test_fixture.stl",
+      "primary_bed_fit": false,
+      "target": "CG test fixture",
+      "watertight": true
+    },
+    {
+      "bbox_mm": [
+        169.32150000000001,
+        106.7426,
+        8.0
+      ],
+      "h2c_fit": true,
+      "notes": "",
+      "output": "coupler_angle_gauge.stl",
+      "primary_bed_fit": true,
+      "target": "Coupler angle gauge",
+      "watertight": true
+    },
+    {
+      "bbox_mm": [
+        130.0,
+        103.0,
+        111.808
+      ],
+      "h2c_fit": true,
+      "notes": "",
+      "output": "route_clearance_gauge.stl",
+      "primary_bed_fit": true,
+      "target": "Route clearance gauge",
+      "watertight": true
+    },
+    {
+      "bbox_mm": [
+        44.0,
+        20.6,
+        2.6
+      ],
+      "h2c_fit": true,
+      "notes": "Loose bridge keys bond across flat front/rear split seams.",
+      "output": "split_alignment_keys.stl",
+      "primary_bed_fit": true,
+      "target": "Split alignment keys",
+      "watertight": true
+    },
+    {
+      "bbox_mm": [
+        326.624,
+        72.5834,
+        66.2958
+      ],
+      "h2c_fit": false,
+      "notes": "Full module regenerated from the selected scale profile; split variants remain available.",
+      "output": "commuter_pod.stl",
+      "primary_bed_fit": false,
+      "target": "Commuter Pod",
+      "watertight": true
+    },
+    {
+      "bbox_mm": [
+        163.31199645996094,
+        72.5833969116211,
+        66.2957992553711
+      ],
+      "h2c_fit": true,
+      "notes": "",
+      "output": "commuter_pod_front_split.stl",
+      "primary_bed_fit": true,
+      "target": "Commuter Pod front split",
+      "watertight": true
+    },
+    {
+      "bbox_mm": [
+        163.31199645996094,
+        72.5833969116211,
+        66.2957992553711
+      ],
+      "h2c_fit": true,
+      "notes": "",
+      "output": "commuter_pod_rear_split.stl",
+      "primary_bed_fit": true,
+      "target": "Commuter Pod rear split",
+      "watertight": true
+    },
+    {
+      "bbox_mm": [
+        326.624,
+        72.5834,
+        77.1833
+      ],
+      "h2c_fit": false,
+      "notes": "Full module regenerated from the selected scale profile; split variants remain available.",
+      "output": "overnight_pod.stl",
+      "primary_bed_fit": false,
+      "target": "Overnight Pod",
+      "watertight": true
+    },
+    {
+      "bbox_mm": [
+        163.31199645996094,
+        72.5833969116211,
+        77.18329620361328
+      ],
+      "h2c_fit": true,
+      "notes": "",
+      "output": "overnight_pod_front_split.stl",
+      "primary_bed_fit": true,
+      "target": "Overnight Pod front split",
+      "watertight": true
+    },
+    {
+      "bbox_mm": [
+        163.31199645996094,
+        72.5833969116211,
+        77.18329620361328
+      ],
+      "h2c_fit": true,
+      "notes": "",
+      "output": "overnight_pod_rear_split.stl",
+      "primary_bed_fit": true,
+      "target": "Overnight Pod rear split",
+      "watertight": true
+    },
+    {
+      "bbox_mm": [
+        326.624,
+        72.5834,
+        62.6667
+      ],
+      "h2c_fit": false,
+      "notes": "Full module regenerated from the selected scale profile; split variants remain available.",
+      "output": "battery_pod.stl",
+      "primary_bed_fit": false,
+      "target": "Battery Pod",
+      "watertight": true
+    },
+    {
+      "bbox_mm": [
+        163.31199645996094,
+        72.5833969116211,
+        62.66669845581055
+      ],
+      "h2c_fit": true,
+      "notes": "",
+      "output": "battery_pod_front_split.stl",
+      "primary_bed_fit": true,
+      "target": "Battery Pod front split",
+      "watertight": true
+    },
+    {
+      "bbox_mm": [
+        163.31199645996094,
+        72.5833969116211,
+        62.66669845581055
+      ],
+      "h2c_fit": true,
+      "notes": "",
+      "output": "battery_pod_rear_split.stl",
+      "primary_bed_fit": true,
+      "target": "Battery Pod rear split",
+      "watertight": true
+    },
+    {
+      "bbox_mm": [
+        326.624,
+        72.5834,
+        9.5
+      ],
+      "h2c_fit": false,
+      "notes": "Full module regenerated from the selected scale profile; split variants remain available.",
+      "output": "container_40_adapter.stl",
+      "primary_bed_fit": false,
+      "target": "Container 40 Adapter",
+      "watertight": true
+    },
+    {
+      "bbox_mm": [
+        163.31199645996094,
+        72.5833969116211,
+        9.5
+      ],
+      "h2c_fit": true,
+      "notes": "",
+      "output": "container_40_adapter_front_split.stl",
+      "primary_bed_fit": true,
+      "target": "Container 40 Adapter front split",
+      "watertight": true
+    },
+    {
+      "bbox_mm": [
+        163.31199645996094,
+        72.5833969116211,
+        9.5
+      ],
+      "h2c_fit": true,
+      "notes": "",
+      "output": "container_40_adapter_rear_split.stl",
+      "primary_bed_fit": true,
+      "target": "Container 40 Adapter rear split",
+      "watertight": true
+    },
+    {
+      "bbox_mm": [
+        326.624,
+        72.5834,
+        9.5
+      ],
+      "h2c_fit": false,
+      "notes": "Full module regenerated from the selected scale profile; split variants remain available.",
+      "output": "container_20_twin_adapter.stl",
+      "primary_bed_fit": false,
+      "target": "Container 20 Twin Adapter",
+      "watertight": true
+    },
+    {
+      "bbox_mm": [
+        163.31199645996094,
+        72.5833969116211,
+        9.5
+      ],
+      "h2c_fit": true,
+      "notes": "",
+      "output": "container_20_twin_adapter_front_split.stl",
+      "primary_bed_fit": true,
+      "target": "Container 20 Twin Adapter front split",
+      "watertight": true
+    },
+    {
+      "bbox_mm": [
+        163.31199645996094,
+        72.5833969116211,
+        9.5
+      ],
+      "h2c_fit": true,
+      "notes": "",
+      "output": "container_20_twin_adapter_rear_split.stl",
+      "primary_bed_fit": true,
+      "target": "Container 20 Twin Adapter rear split",
+      "watertight": true
+    },
+    {
+      "bbox_mm": [
+        326.624,
+        72.5834,
+        62.6667
+      ],
+      "h2c_fit": false,
+      "notes": "Full module regenerated from the selected scale profile; split variants remain available.",
+      "output": "open_bin.stl",
+      "primary_bed_fit": false,
+      "target": "Open Bin",
+      "watertight": true
+    },
+    {
+      "bbox_mm": [
+        163.31199645996094,
+        72.5833969116211,
+        62.66669845581055
+      ],
+      "h2c_fit": true,
+      "notes": "",
+      "output": "open_bin_front_split.stl",
+      "primary_bed_fit": true,
+      "target": "Open Bin front split",
+      "watertight": true
+    },
+    {
+      "bbox_mm": [
+        163.31199645996094,
+        72.5833969116211,
+        62.66669845581055
+      ],
+      "h2c_fit": true,
+      "notes": "",
+      "output": "open_bin_rear_split.stl",
+      "primary_bed_fit": true,
+      "target": "Open Bin rear split",
+      "watertight": true
+    },
+    {
+      "bbox_mm": [
+        326.624,
+        72.5834,
+        96.8708
+      ],
+      "h2c_fit": false,
+      "notes": "Full module regenerated from the selected scale profile; split variants remain available.",
+      "output": "ballast_test_module.stl",
+      "primary_bed_fit": false,
+      "target": "Ballast Test Module",
+      "watertight": true
+    },
+    {
+      "bbox_mm": [
+        163.31199645996094,
+        72.5833969116211,
+        96.87079620361328
+      ],
+      "h2c_fit": true,
+      "notes": "",
+      "output": "ballast_test_module_front_split.stl",
+      "primary_bed_fit": true,
+      "target": "Ballast Test Module front split",
+      "watertight": true
+    },
+    {
+      "bbox_mm": [
+        163.31199645996094,
+        72.5833969116211,
+        96.87079620361328
+      ],
+      "h2c_fit": true,
+      "notes": "",
+      "output": "ballast_test_module_rear_split.stl",
+      "primary_bed_fit": true,
+      "target": "Ballast Test Module rear split",
+      "watertight": true
+    }
+  ],
+  "dimensions_mm": {
+    "iso_20ft_container_length": 126.20833333333333,
+    "iso_40ft_container_length": 254.0,
+    "iso_container_width": 50.791666666666664,
+    "length_over_coupler_faces": 580.6666666666666,
+    "module_length": 326.62499999999994,
+    "module_width": 72.58333333333333,
+    "printed_sled_body_length": 544.375,
+    "sled_body_width": 76.21249999999999,
+    "stabilization_envelope_width": 87.09999999999998
+  },
+  "manufacturing_parameters_model_mm": {
+    "container_fit_clearance_length": 1.5,
+    "container_fit_clearance_width": 1.2,
+    "latch_slot_length": 12,
+    "latch_slot_width": 3.8,
+    "mount_pin_diameter": 3.4,
+    "printer_tolerance": 0.35,
+    "split_key_height": 3,
+    "split_key_length": 10,
+    "split_key_width": 5,
+    "wall_thickness": 1.8
+  },
+  "paths": {
+    "previews": "cad/s1/generated/o-1-48/previews",
+    "report": "cad/s1/generated/o-1-48/asset-report.md",
+    "stl": "cad/s1/generated/o-1-48/stl",
+    "three_mf": "cad/s1/generated/o-1-48/3mf"
+  },
+  "primary_bed": "h2c",
+  "scale_label": "O scale 1:48",
+  "scale_profile": "o-1-48",
+  "scale_ratio": 48.0,
+  "schema_version": "atos.s1.generated-assets.v1",
+  "three_mf_projects": [
+    "ballast_test_module_module_h2c.3mf",
+    "battery_pod_module_h2c.3mf",
+    "commuter_pod_module_h2c.3mf",
+    "container_20_twin_adapter_module_h2c.3mf",
+    "container_40_adapter_module_h2c.3mf",
+    "open_bin_module_h2c.3mf",
+    "overnight_pod_module_h2c.3mf",
+    "s1_ballast_test_module_car_h2c_module_plate.3mf",
+    "s1_ballast_test_module_car_h2c_sled_plate.3mf",
+    "s1_battery_pod_car_h2c_module_plate.3mf",
+    "s1_battery_pod_car_h2c_sled_plate.3mf",
+    "s1_commuter_pod_car_h2c_module_plate.3mf",
+    "s1_commuter_pod_car_h2c_sled_plate.3mf",
+    "s1_container_20_twin_adapter_car_h2c_module_plate.3mf",
+    "s1_container_20_twin_adapter_car_h2c_sled_plate.3mf",
+    "s1_container_40_adapter_car_h2c_module_plate.3mf",
+    "s1_container_40_adapter_car_h2c_sled_plate.3mf",
+    "s1_fixtures_h2c.3mf",
+    "s1_open_bin_car_h2c_module_plate.3mf",
+    "s1_open_bin_car_h2c_sled_plate.3mf",
+    "s1_overnight_pod_car_h2c_module_plate.3mf",
+    "s1_overnight_pod_car_h2c_sled_plate.3mf"
+  ]
+}

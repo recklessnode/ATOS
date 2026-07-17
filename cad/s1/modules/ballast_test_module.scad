@@ -33,12 +33,12 @@ module ballast_test_module_full() {
 module ballast_test_module_part() {
   if (build_part == "front")
     difference() {
-      render(convexity = 10) intersection() { ballast_test_module_full(); split_front_clip(s1_module_length, 70, 108); }
+      render(convexity = 10) intersection() { ballast_test_module_full(); split_front_clip(s1_module_length, s1_module_width + 30, s1_module_interface_height + s1_ballast_module_height + 80); }
       split_alignment_sockets("front", z = 0.5);
     }
   else if (build_part == "rear")
     difference() {
-      render(convexity = 10) intersection() { ballast_test_module_full(); split_rear_clip(s1_module_length, 70, 108); }
+      render(convexity = 10) intersection() { ballast_test_module_full(); split_rear_clip(s1_module_length, s1_module_width + 30, s1_module_interface_height + s1_ballast_module_height + 80); }
       split_alignment_sockets("rear", z = 0.5);
     }
   else

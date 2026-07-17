@@ -21,12 +21,12 @@ module open_bin_full() {
 module open_bin_part() {
   if (build_part == "front")
     difference() {
-      render(convexity = 10) intersection() { open_bin_full(); split_front_clip(s1_module_length, 70, 88); }
+      render(convexity = 10) intersection() { open_bin_full(); split_front_clip(s1_module_length, s1_module_width + 30, s1_module_interface_height + s1_open_bin_height + 70); }
       split_alignment_sockets("front", z = 0.5);
     }
   else if (build_part == "rear")
     difference() {
-      render(convexity = 10) intersection() { open_bin_full(); split_rear_clip(s1_module_length, 70, 88); }
+      render(convexity = 10) intersection() { open_bin_full(); split_rear_clip(s1_module_length, s1_module_width + 30, s1_module_interface_height + s1_open_bin_height + 70); }
       split_alignment_sockets("rear", z = 0.5);
     }
   else
