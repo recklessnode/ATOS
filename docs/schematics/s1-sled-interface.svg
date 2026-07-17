@@ -1,0 +1,93 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="820" viewBox="0 0 1200 820">
+  <style>
+    text { font-family: Arial, sans-serif; fill: #111; }
+    .title { font-size: 28px; font-weight: 700; }
+    .sub { font-size: 15px; }
+    .label { font-size: 16px; font-weight: 600; }
+    .small { font-size: 13px; }
+    .line { stroke: #111; stroke-width: 2; fill: none; }
+    .thin { stroke: #555; stroke-width: 1.2; fill: none; }
+    .dash { stroke: #555; stroke-width: 1.2; stroke-dasharray: 7 5; fill: none; }
+    .deck { fill: #e8e8e8; stroke: #111; stroke-width: 2; }
+    .module { fill: #f7f7f7; stroke: #111; stroke-width: 2; }
+    .station { fill: #fff; stroke: #111; stroke-width: 2; }
+    .dim { stroke: #333; stroke-width: 1.2; marker-start: url(#arrow); marker-end: url(#arrow); }
+  </style>
+  <defs>
+    <marker id="arrow" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto-start-reverse">
+      <path d="M0,0 L8,4 L0,8 z" fill="#333"/>
+    </marker>
+  </defs>
+
+  <text x="50" y="45" class="title">ATOS S1 General-Purpose Sled — Concept Interface Schematic</text>
+  <text x="50" y="70" class="sub">Provisional dimensions in millimeters. Not release-to-manufacture.</text>
+
+  <!-- Top view -->
+  <text x="70" y="115" class="label">TOP VIEW</text>
+  <rect x="110" y="150" width="800" height="180" rx="18" class="deck"/>
+  <rect x="160" y="170" width="700" height="140" rx="8" class="module"/>
+  <line x1="510" y1="170" x2="510" y2="310" class="dash"/>
+  <text x="412" y="244" class="small">240 × 64 usable module footprint</text>
+
+  <!-- couplers -->
+  <rect x="70" y="205" width="40" height="70" class="station"/>
+  <rect x="910" y="205" width="40" height="70" class="station"/>
+  <text x="35" y="195" class="small">active coupler</text>
+  <text x="925" y="195" class="small">active coupler</text>
+
+  <!-- attachment stations -->
+  <circle cx="210" cy="200" r="13" class="station"/>
+  <circle cx="810" cy="200" r="13" class="station"/>
+  <circle cx="210" cy="280" r="13" class="station"/>
+  <circle cx="810" cy="280" r="13" class="station"/>
+  <text x="175" y="350" class="small">4 keyed locating/latch stations</text>
+
+  <!-- central service connector -->
+  <rect x="470" y="218" width="80" height="44" class="station"/>
+  <text x="452" y="290" class="small">service connector</text>
+
+  <!-- top dimensions -->
+  <line x1="70" y1="120" x2="950" y2="120" class="dim"/>
+  <line x1="70" y1="125" x2="70" y2="205" class="thin"/>
+  <line x1="950" y1="125" x2="950" y2="205" class="thin"/>
+  <text x="474" y="110" class="small">320 overall</text>
+
+  <line x1="110" y1="355" x2="910" y2="355" class="dim"/>
+  <line x1="110" y1="330" x2="110" y2="365" class="thin"/>
+  <line x1="910" y1="330" x2="910" y2="365" class="thin"/>
+  <text x="482" y="378" class="small">280 structural deck</text>
+
+  <line x1="965" y1="150" x2="965" y2="330" class="dim"/>
+  <line x1="910" y1="150" x2="975" y2="150" class="thin"/>
+  <line x1="910" y1="330" x2="975" y2="330" class="thin"/>
+  <text x="978" y="246" class="small">72 overall width</text>
+
+  <!-- Side view -->
+  <text x="70" y="430" class="label">SIDE VIEW</text>
+  <rect x="110" y="515" width="800" height="48" rx="8" class="deck"/>
+  <rect x="160" y="455" width="700" height="60" rx="7" class="module"/>
+  <rect x="75" y="525" width="35" height="28" class="station"/>
+  <rect x="910" y="525" width="35" height="28" class="station"/>
+  <line x1="70" y1="595" x2="950" y2="595" class="dash"/>
+  <text x="70" y="618" class="small">guideway datum</text>
+
+  <!-- lower guidance/propulsion zones -->
+  <rect x="220" y="563" width="150" height="24" class="station"/>
+  <rect x="650" y="563" width="150" height="24" class="station"/>
+  <text x="236" y="650" class="small">guidance / levitation / propulsion interfaces</text>
+  <line x1="295" y1="587" x2="295" y2="632" class="thin"/>
+  <line x1="725" y1="587" x2="725" y2="632" class="thin"/>
+
+  <!-- height dimension -->
+  <line x1="980" y1="515" x2="980" y2="595" class="dim"/>
+  <line x1="910" y1="515" x2="990" y2="515" class="thin"/>
+  <line x1="950" y1="595" x2="990" y2="595" class="thin"/>
+  <text x="993" y="560" class="small">30 deck datum</text>
+
+  <!-- interface notes -->
+  <rect x="70" y="685" width="1060" height="100" class="thin"/>
+  <text x="90" y="712" class="label">Concept interface notes</text>
+  <text x="90" y="738" class="small">• Mechanical latches carry vertical, longitudinal, and lateral loads; the electrical connector is non-structural.</text>
+  <text x="90" y="760" class="small">• Central services: protected 24 V raw, auxiliary low-voltage rail, redundant differential data, timing, presence, and safe-to-remove.</text>
+  <text x="90" y="782" class="small">• Final node spacing and envelope require guideway, minimum curve radius, load, and magnetic architecture decisions.</text>
+</svg>
