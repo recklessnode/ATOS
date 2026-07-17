@@ -134,11 +134,14 @@ export function appendAppliedEvent(
   state: SimulationRuntimeState,
   event: SimulationEvent,
 ): SimulationRuntimeState {
+  const currentTime = Date.parse(state.clock.currentTime) > Date.parse(event.timestamp)
+    ? state.clock.currentTime
+    : event.timestamp;
   return {
     ...state,
     clock: {
       ...state.clock,
-      currentTime: event.timestamp,
+      currentTime,
       processedEventCount: state.clock.processedEventCount + 1,
     },
     eventHistory: [...state.eventHistory, { ...event, status: "applied" }],

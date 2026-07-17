@@ -251,6 +251,7 @@ export type SimulationInput = {
   scenario: ScenarioDocumentV1;
   dispatchResult: DispatchPlannerResult;
   faultSchedule?: readonly SimulationFault[];
+  initialAssetLocations?: Readonly<Record<StableId, StableId>>;
   config?: Partial<SimulationConfig>;
 };
 

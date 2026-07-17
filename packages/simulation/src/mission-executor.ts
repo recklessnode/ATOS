@@ -29,8 +29,7 @@ import {
   holdMissionReservations,
   missionChits,
   missionReservedResourceIds,
-  missionReservationCoversStart,
-  missionServiceZoneResourceIds,
+  missionReservationCoversInterval,
   releaseMissionReservations,
   updateAssets,
   updateMission,
@@ -103,6 +102,13 @@ export function advanceSimulationBy(
   ) {
     next = stepSimulationToNextEvent(next);
     processed += 1;
+  }
+  if (
+    processed >= next.clock.maxEventsPerAdvance &&
+    next.eventQueue[0] &&
+    Date.parse(next.eventQueue[0].timestamp) <= Date.parse(targetTime)
+  ) {
+    return next;
   }
   if (next.clock.status !== "completed" && Date.parse(next.clock.currentTime) < Date.parse(targetTime)) {
     next = { ...next, clock: advanceClockTo(next.clock, targetTime) };
@@ -208,7 +214,6 @@ function handleMissionAccepted(
     mission.plan.assetIds.map((assetId) => `asset:${assetId}`),
     event.timestamp,
   );
-  next = updateMissionAssetsNode(next, mission.plan.id, mission.plan.route.originNodeId);
   next = updateMission(next, mission.plan.id, (current) => ({ ...current, startedAt: event.timestamp }));
   return scheduleNext(next, event, "formation_started", 0);
 }
@@ -221,6 +226,14 @@ function handleFormationStarted(
   if (!mission) {
     return state;
   }
+  const formationCheck = validateMissionConsistFormation(state, event, mission);
+  if (!formationCheck.valid) {
+    return blockForReplanning(state, event, formationCheck.reason, formationCheck.affectedResourceIds);
+  }
+  const energyCheck = ensureServiceEnergyAvailable(state, event, mission);
+  if (!energyCheck.available) {
+    return energyCheck.state;
+  }
   const acquisition = acquireMissionServiceResources(
     state,
     event,
@@ -232,7 +245,11 @@ function handleFormationStarted(
   if (!acquisition.acquired) {
     return acquisition.state;
   }
-  const next = startMissionConsistFormation(setMissionState(acquisition.state, event, "forming"), mission.plan.id);
+  const next = updateAssets(
+    startMissionConsistFormation(setMissionState(acquisition.state, event, "forming"), mission.plan.id),
+    mission.plan.assetIds,
+    (asset) => ({ ...asset, activeMissionId: mission.plan.id }),
+  );
   return scheduleNext(next, event, "consist_join_started", 0);
 }
 
@@ -243,7 +260,10 @@ function handleFormationCompleted(
   if (!event.missionId) {
     return state;
   }
-  const released = releaseMissionServiceResources(state, event.missionId, "formation", event.timestamp);
+  const released = consumeMissionServiceEnergy(
+    releaseMissionServiceResources(state, event.missionId, "formation", event.timestamp),
+    event.missionId,
+  );
   const next = formMissionConsist(released, event.missionId, event.timestamp);
   return scheduleNext(next, event, "loading_started", 0);
 }
@@ -258,6 +278,10 @@ function handleLoadingStarted(
   }
   const chits = missionChits(state, mission.plan);
   const duration = loadingDurationSeconds(state, chits);
+  const energyCheck = ensureServiceEnergyAvailable(state, event, mission);
+  if (!energyCheck.available) {
+    return energyCheck.state;
+  }
   const acquisition = acquireMissionServiceResources(
     state,
     event,
@@ -287,7 +311,10 @@ function handleLoadingCompleted(
   }
   const chits = missionChits(state, mission.plan);
   const quantityByChitId = new Map(chits.map((chit) => [chit.id, quantityForChit(chit)]));
-  const released = releaseMissionServiceResources(state, mission.plan.id, "loading", event.timestamp);
+  const released = consumeMissionServiceEnergy(
+    releaseMissionServiceResources(state, mission.plan.id, "loading", event.timestamp),
+    mission.plan.id,
+  );
   const next = updateMission(setMissionState(released, event, "ready"), mission.plan.id, (current) => ({
     ...current,
     chitProgress: current.chitProgress.map((progress) => ({
@@ -413,6 +440,18 @@ function handleGuidewayEntered(
     });
   }
 
+  const travelSeconds = routeLinkTravelSeconds(state, linkId);
+  const reservation = missionReservationCoversInterval(
+    state,
+    mission.plan.id,
+    `guideway-link:${linkId}`,
+    event.timestamp,
+    advanceIsoTime(event.timestamp, travelSeconds),
+  );
+  if (!reservation.available) {
+    return handleReservationUnavailable(state, event, reservation, [`guideway-link:${linkId}`]);
+  }
+
   const energyWh = linkEnergyWh(state, linkId);
   const energyCheck = missionEnergyCheck(state, mission.plan.id, energyWh);
   if (!energyCheck.ok) {
@@ -429,7 +468,6 @@ function handleGuidewayEntered(
     });
   }
 
-  const travelSeconds = routeLinkTravelSeconds(state, linkId);
   const acquisition = acquireGuidewayOccupancy(state, {
     linkId,
     missionId: mission.plan.id,
@@ -550,6 +588,10 @@ function handleUnloadingStarted(
   const chits = missionChits(state, mission.plan);
   const duration = unloadingDurationSeconds(state, chits);
   const resourceIds = serviceResourceIdsForAction(state, mission, "unloading");
+  const energyCheck = ensureServiceEnergyAvailable(state, event, mission);
+  if (!energyCheck.available) {
+    return energyCheck.state;
+  }
   const acquisition = acquireMissionServiceResources(state, event, mission, "unloading", duration, resourceIds);
   if (!acquisition.acquired) {
     return acquisition.state;
@@ -570,7 +612,10 @@ function handleUnloadingCompleted(
   }
   const chits = missionChits(state, mission.plan);
   const quantityByChitId = new Map(chits.map((chit) => [chit.id, quantityForChit(chit)]));
-  let next = releaseMissionServiceResources(state, mission.plan.id, "unloading", event.timestamp);
+  let next = consumeMissionServiceEnergy(
+    releaseMissionServiceResources(state, mission.plan.id, "unloading", event.timestamp),
+    mission.plan.id,
+  );
   next = updateMission(next, mission.plan.id, (current) => ({
     ...current,
     chitProgress: current.chitProgress.map((progress) => ({
@@ -645,11 +690,39 @@ function handleChargingStarted(
     });
   }
   const duration = Math.ceil((state.config.minimumBatteryReserveWh * 3600) / state.config.chargingPowerWatts);
+  if (resourceIds.length === 0) {
+    return blockForReplanning(
+      state,
+      event,
+      "No dispatch charging service reservation exists for this mission.",
+      ["station-zone:charging"],
+    );
+  }
+  const powerResourceIds = missionReservedResourceIds(state, mission.plan.id, "power-window");
+  if (powerResourceIds.length === 0) {
+    return blockForReplanning(
+      state,
+      event,
+      "No dispatch power-window reservation exists for charging.",
+      ["power-window"],
+    );
+  }
+  for (const resourceId of powerResourceIds) {
+    const reservation = missionReservationCoversInterval(
+      state,
+      mission.plan.id,
+      resourceId,
+      event.timestamp,
+      advanceIsoTime(event.timestamp, duration),
+    );
+    if (!reservation.available) {
+      return handleReservationUnavailable(state, event, reservation, [resourceId]);
+    }
+  }
   const acquisition = acquireMissionServiceResources(state, event, mission, "charging", duration, resourceIds);
   if (!acquisition.acquired) {
     return acquisition.state;
   }
-  const powerResourceIds = missionReservedResourceIds(acquisition.state, mission.plan.id, "power-window");
   const powered = activateMissionResourceReservations(acquisition.state, mission.plan.id, powerResourceIds, event.timestamp);
   return scheduleNext(setMissionState(powered, event, "servicing"), event, "charging_completed", duration, {
     chargingPowerWatts: state.config.chargingPowerWatts,
@@ -693,13 +766,26 @@ function handleMaintenanceStarted(
     return state;
   }
   const duration = state.config.maintenanceSeconds;
+  const resourceIds = serviceResourceIdsForAction(state, mission, "maintenance");
+  if (resourceIds.length === 0) {
+    return blockForReplanning(
+      state,
+      event,
+      "No dispatch maintenance service reservation exists for this mission.",
+      ["station-zone:maintenance"],
+    );
+  }
+  const energyCheck = ensureServiceEnergyAvailable(state, event, mission);
+  if (!energyCheck.available) {
+    return energyCheck.state;
+  }
   const acquisition = acquireMissionServiceResources(
     state,
     event,
     mission,
     "maintenance",
     duration,
-    serviceResourceIdsForAction(state, mission, "maintenance"),
+    resourceIds,
   );
   if (!acquisition.acquired) {
     return acquisition.state;
@@ -714,7 +800,10 @@ function handleMaintenanceCompleted(
   if (!event.missionId) {
     return state;
   }
-  const next = releaseMissionServiceResources(state, event.missionId, "maintenance", event.timestamp);
+  const next = consumeMissionServiceEnergy(
+    releaseMissionServiceResources(state, event.missionId, "maintenance", event.timestamp),
+    event.missionId,
+  );
   return scheduleNext(next, event, "consist_split_started", 0);
 }
 
@@ -726,6 +815,10 @@ function handleConsistSplitStarted(
   const mission = findMission(state, missionId);
   if (!mission) {
     return state;
+  }
+  const energyCheck = ensureServiceEnergyAvailable(state, event, mission);
+  if (!energyCheck.available) {
+    return energyCheck.state;
   }
   const acquisition = acquireMissionServiceResources(
     state,
@@ -753,7 +846,10 @@ function handleConsistSplitCompleted(
   if (!event.missionId) {
     return state;
   }
-  const released = releaseMissionServiceResources(state, event.missionId, "split", event.timestamp);
+  const released = consumeMissionServiceEnergy(
+    releaseMissionServiceResources(state, event.missionId, "split", event.timestamp),
+    event.missionId,
+  );
   const next = dissolveMissionConsist(released, event.missionId, event.timestamp);
   return scheduleNext(next, event, "mission_completed", 0);
 }
@@ -877,6 +973,150 @@ function requestReplanningAfterFailure(
     : next;
 }
 
+function handleReservationUnavailable(
+  state: SimulationRuntimeState,
+  event: SimulationEvent,
+  reservation: { terminal: boolean; reason: string; retryAt?: string },
+  resourceIds: readonly string[],
+): SimulationRuntimeState {
+  if (!reservation.terminal) {
+    return scheduleResourceRetry(state, event, reservation.reason, resourceIds, reservation.retryAt);
+  }
+  let next = scheduleEvent(setMissionState(state, event, "blocked"), {
+    timestamp: event.timestamp,
+    type: "reservation_conflict",
+    missionId: event.missionId,
+    transientWorkerId: event.transientWorkerId,
+    affectedAssetIds: event.affectedAssetIds,
+    affectedResourceIds: resourceIds,
+    causalEventId: event.id,
+    payload: { reason: reservation.reason, retryEventType: event.type },
+    severity: "error",
+  });
+  next = scheduleEvent(next, {
+    timestamp: event.timestamp,
+    type: "replanning_requested",
+    missionId: event.missionId,
+    transientWorkerId: event.transientWorkerId,
+    affectedAssetIds: event.affectedAssetIds,
+    affectedResourceIds: resourceIds,
+    causalEventId: event.id,
+    payload: { reason: reservation.reason },
+    severity: "error",
+  });
+  return next;
+}
+
+function blockForReplanning(
+  state: SimulationRuntimeState,
+  event: SimulationEvent,
+  reason: string,
+  resourceIds: readonly string[],
+): SimulationRuntimeState {
+  return scheduleEvent(setMissionState(state, event, "blocked"), {
+    timestamp: event.timestamp,
+    type: "replanning_requested",
+    missionId: event.missionId,
+    transientWorkerId: event.transientWorkerId,
+    affectedAssetIds: event.affectedAssetIds,
+    affectedResourceIds: resourceIds,
+    causalEventId: event.id,
+    payload: { reason },
+    severity: "error",
+  });
+}
+
+function validateMissionConsistFormation(
+  state: SimulationRuntimeState,
+  event: SimulationEvent,
+  mission: RuntimeMission,
+): { valid: true } | { valid: false; reason: string; affectedResourceIds: string[] } {
+  for (const assetId of mission.plan.assetIds) {
+    const asset = state.assets.find((candidate) => candidate.assetId === assetId);
+    if (!asset) {
+      return {
+        valid: false,
+        reason: `Mission asset ${assetId} is not present in runtime state.`,
+        affectedResourceIds: [`asset:${assetId}`],
+      };
+    }
+    if (asset.nodeId !== mission.plan.route.originNodeId) {
+      return {
+        valid: false,
+        reason: `Mission asset ${assetId} is at ${asset.nodeId ?? "unknown"}, not formation origin ${mission.plan.route.originNodeId}.`,
+        affectedResourceIds: [`asset:${assetId}`],
+      };
+    }
+    if (asset.health !== "nominal") {
+      return {
+        valid: false,
+        reason: `Mission asset ${assetId} is ${asset.health} and cannot form a consist.`,
+        affectedResourceIds: [`asset:${assetId}`],
+      };
+    }
+    if (asset.activeMissionId && asset.activeMissionId !== mission.plan.id) {
+      return {
+        valid: false,
+        reason: `Mission asset ${assetId} is already assigned to ${asset.activeMissionId}.`,
+        affectedResourceIds: [`asset:${assetId}`],
+      };
+    }
+    if (asset.consistId && asset.consistId !== mission.plan.superWorkerId) {
+      return {
+        valid: false,
+        reason: `Mission asset ${assetId} is already in consist ${asset.consistId}.`,
+        affectedResourceIds: [`asset:${assetId}`],
+      };
+    }
+  }
+  return { valid: true };
+}
+
+function ensureServiceEnergyAvailable(
+  state: SimulationRuntimeState,
+  event: SimulationEvent,
+  mission: RuntimeMission,
+): { available: true } | { available: false; state: SimulationRuntimeState } {
+  if (state.config.serviceEnergyWh <= 0 || !missionHasBatteryAssets(state, mission.plan.id)) {
+    return { available: true };
+  }
+  const energyCheck = missionEnergyCheck(state, mission.plan.id, state.config.serviceEnergyWh);
+  if (energyCheck.ok) {
+    return { available: true };
+  }
+  return {
+    available: false,
+    state: scheduleEvent(setMissionState(state, event, "blocked"), {
+      timestamp: event.timestamp,
+      type: "battery_reserve_violated",
+      missionId: mission.plan.id,
+      transientWorkerId: mission.plan.superWorkerId,
+      affectedAssetIds: mission.plan.assetIds,
+      affectedResourceIds: event.affectedResourceIds,
+      causalEventId: event.id,
+      payload: { ...energyCheck, action: event.type, serviceEnergyWh: state.config.serviceEnergyWh },
+      severity: "error",
+    }),
+  };
+}
+
+function consumeMissionServiceEnergy(
+  state: SimulationRuntimeState,
+  missionId: string,
+): SimulationRuntimeState {
+  if (state.config.serviceEnergyWh <= 0 || !missionHasBatteryAssets(state, missionId)) {
+    return state;
+  }
+  return consumeMissionEnergy(state, missionId, state.config.serviceEnergyWh);
+}
+
+function missionHasBatteryAssets(state: SimulationRuntimeState, missionId: string): boolean {
+  const mission = findMission(state, missionId);
+  return Boolean(mission && state.assets.some((asset) =>
+    mission.plan.assetIds.includes(asset.assetId) && asset.battery
+  ));
+}
+
 type MissionServiceAction = ServiceOccupancy["action"];
 
 function acquireMissionServiceResources(
@@ -894,10 +1134,23 @@ function acquireMissionServiceResources(
 
   let next = state;
   const acquiredResources: string[] = [];
+  const endTime = advanceIsoTime(event.timestamp, durationSeconds);
   for (const resourceId of resources) {
-    const reservation = missionReservationCoversStart(next, mission.plan.id, resourceId, event.timestamp);
+    const reservation = missionReservationCoversInterval(
+      next,
+      mission.plan.id,
+      resourceId,
+      event.timestamp,
+      endTime,
+    );
     if (!reservation.available) {
       const rolledBack = releaseMissionServiceResources(next, mission.plan.id, action, event.timestamp);
+      if (reservation.terminal) {
+        return {
+          acquired: false,
+          state: blockForReplanning(rolledBack, event, reservation.reason, [resourceId]),
+        };
+      }
       return {
         acquired: false,
         state: scheduleResourceRetry(rolledBack, event, reservation.reason, [resourceId], reservation.retryAt),
@@ -967,36 +1220,33 @@ function serviceResourceIdsForAction(
     return endpointServiceResources(chits, "destination", stationReservations);
   }
   if (action === "charging") {
-    const chargingResources = stationReservations.filter((resourceId) =>
+    return stationReservations.filter((resourceId) =>
       serviceZoneType(state, resourceId) === "charging-siding"
     );
-    return chargingResources.length > 0
-      ? chargingResources
-      : endpointServiceResources(chits, "destination", stationReservations);
   }
   if (action === "maintenance") {
-    const maintenanceResources = stationReservations.filter((resourceId) =>
+    return stationReservations.filter((resourceId) =>
       serviceZoneType(state, resourceId) === "maintenance"
     );
-    return maintenanceResources.length > 0 ? maintenanceResources : stationReservations;
   }
   if (action === "split") {
-    return endpointServiceResources(chits, "destination", stationReservations);
+    return endpointServiceResources(chits, "destination", stationReservations, false);
   }
-  return stationReservations.length > 0 ? stationReservations : missionServiceZoneResourceIds(mission.plan);
+  return endpointServiceResources(chits, "origin", stationReservations, false);
 }
 
 function endpointServiceResources(
   chits: ReturnType<typeof missionChits>,
   endpoint: "origin" | "destination",
   allowedResources: readonly string[],
+  fallbackToAllowed = true,
 ): string[] {
   const allowed = new Set(allowedResources);
   const resources = uniqueSorted(chits
     .map((chit) => chit[endpoint].serviceZoneId ? `station-zone:${chit[endpoint].serviceZoneId}` : undefined)
     .filter((resourceId): resourceId is string => Boolean(resourceId))
     .filter((resourceId) => allowed.size === 0 || allowed.has(resourceId)));
-  return resources.length > 0 ? resources : uniqueSorted(allowedResources);
+  return resources.length > 0 || !fallbackToAllowed ? resources : uniqueSorted(allowedResources);
 }
 
 function serviceZoneType(state: SimulationRuntimeState, resourceId: string): string | undefined {

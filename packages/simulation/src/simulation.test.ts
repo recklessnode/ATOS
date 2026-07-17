@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   advanceSimulationBy,
+  advanceIsoTime,
   canTransitionMissionState,
   createSimulationEvent,
   createSimulationFixture,
@@ -18,6 +19,7 @@ import {
   setSimulationPlaybackSpeed,
   stepSimulationToNextEvent,
   type SimulationEventType,
+  type SimulationInput,
   type SimulationRuntimeState,
 } from ".";
 
@@ -63,6 +65,27 @@ describe("ATOS simulation engine", () => {
     expect(stepped.clock.processedEventCount).toBe(1);
     expect(advanced.clock.currentTime).not.toBe(paused.clock.currentTime);
     expect(advanced.clock.playbackSpeed).toBe(2);
+  });
+
+  it("does not advance past due events or move time backward when the event bound is reached", () => {
+    let state = initializeSimulation({
+      ...createSimulationFixture("simple-passenger"),
+      config: { maxEventsPerAdvance: 1 },
+    });
+    const target = advanceIsoTime(state.clock.currentTime, 600);
+
+    state = advanceSimulationBy(state, 600);
+    expect(state.clock.processedEventCount).toBe(1);
+    expect(state.clock.currentTime).not.toBe(target);
+    expect(Date.parse(state.eventQueue[0]?.timestamp ?? target)).toBeLessThanOrEqual(Date.parse(target));
+
+    let previousTime = Date.parse(state.clock.currentTime);
+    for (let index = 0; index < 20 && state.clock.status !== "completed"; index += 1) {
+      state = advanceSimulationBy(state, 600);
+      const currentTime = Date.parse(state.clock.currentTime);
+      expect(currentTime).toBeGreaterThanOrEqual(previousTime);
+      previousTime = currentTime;
+    }
   });
 
   it("executes mission lifecycle transitions through explicit events", () => {
@@ -138,6 +161,111 @@ describe("ATOS simulation engine", () => {
     expect(first.eventHistory.map(eventSignature)).toEqual(second.eventHistory.map(eventSignature));
   });
 
+  it("requires guideway reservations to exist and cover the full movement interval", () => {
+    const input = createSimulationFixture("consist-formation-split");
+    const mission = input.dispatchResult.missionPlans[0];
+    const linkId = mission?.route.linkIds[0];
+    if (!mission || !linkId) {
+      throw new Error("fixture mission is missing a guideway link");
+    }
+
+    const missing = {
+      ...input,
+      dispatchResult: {
+        ...input.dispatchResult,
+        reservations: input.dispatchResult.reservations.filter((reservation) =>
+          !(reservation.missionPlanId === mission.id && reservation.resourceId === `guideway-link:${linkId}`)
+        ),
+      },
+    };
+    const missingResult = runSimulationToCompletion(missing);
+    expect(missingResult.missions[0]?.state).toBe("blocked");
+    expect(missingResult.eventHistory.find((event) => event.type === "replanning_requested")?.payload.reason)
+      .toContain(`No dispatch reservation exists for guideway-link:${linkId}`);
+
+    const expired = updateReservations(input, (reservation) =>
+      reservation.missionPlanId === mission.id && reservation.resourceId === `guideway-link:${linkId}`,
+    (reservation) => ({
+      ...reservation,
+      endTime: advanceIsoTime(mission.startsAt, 1),
+    }));
+    const expiredResult = runSimulationToCompletion(expired);
+    expect(expiredResult.missions[0]?.state).toBe("blocked");
+    expect(String(expiredResult.eventHistory.find((event) => event.type === "replanning_requested")?.payload.reason))
+      .toContain("expired");
+  });
+
+  it("delays early reservation use but blocks reservation duration overruns", () => {
+    const input = createSimulationFixture("consist-formation-split");
+    const mission = input.dispatchResult.missionPlans[0];
+    const linkId = mission?.route.linkIds[0];
+    if (!mission || !linkId) {
+      throw new Error("fixture mission is missing a guideway link");
+    }
+
+    const earlyStart = advanceIsoTime(mission.startsAt, 3600);
+    const early = updateReservations(input, (reservation) =>
+      reservation.missionPlanId === mission.id && reservation.resourceId === `guideway-link:${linkId}`,
+    (reservation) => ({
+      ...reservation,
+      startTime: earlyStart,
+      endTime: advanceIsoTime(earlyStart, 3600),
+    }));
+    const delayed = runSimulationToCompletion(early);
+    expect(delayed.missions[0]?.state).toBe("completed");
+    expect(delayed.eventHistory.find((event) => event.type === "reservation_conflict")?.payload.reason)
+      .toContain(`starts at ${earlyStart}`);
+
+    const overrun = updateReservations(input, (reservation) =>
+      reservation.missionPlanId === mission.id && reservation.resourceId === "station-zone:zone-passenger",
+    (reservation) => ({
+      ...reservation,
+      endTime: advanceIsoTime(reservation.startTime, 10),
+    }));
+    const overrunResult = runSimulationToCompletion(overrun);
+    expect(overrunResult.missions[0]?.state).toBe("blocked");
+    expect(String(overrunResult.eventHistory.find((event) => event.type === "replanning_requested")?.payload.reason))
+      .toContain("after reservation end");
+  });
+
+  it("requires charging power windows and charger capacity before charging", () => {
+    const input = createSimulationFixture("battery-support");
+    const mission = input.dispatchResult.missionPlans[0];
+    if (!mission) {
+      throw new Error("fixture mission is missing");
+    }
+    const missingPower = {
+      ...input,
+      dispatchResult: {
+        ...input.dispatchResult,
+        reservations: input.dispatchResult.reservations.filter((reservation) =>
+          !(reservation.missionPlanId === mission.id && reservation.resourceType === "power-window")
+        ),
+      },
+    };
+    const missingPowerResult = runSimulationToCompletion(missingPower);
+    expect(missingPowerResult.eventHistory.some((event) => event.type === "charging_completed")).toBe(false);
+    expect(String(missingPowerResult.eventHistory.find((event) => event.type === "replanning_requested")?.payload.reason))
+      .toContain("No dispatch power-window reservation exists for charging.");
+
+    let occupied = initializeSimulation(input);
+    occupied = {
+      ...occupied,
+      serviceOccupancy: [{
+        id: "occupancy:fixture:charger-busy",
+        resourceId: "station-zone:zone-charging",
+        missionId: "mission:external:charger",
+        action: "charging",
+        startTime: occupied.clock.currentTime,
+        endTime: advanceIsoTime(occupied.clock.currentTime, 3600),
+        capacityUsed: 1,
+      }],
+    };
+    const conflict = stepUntilEvent(occupied, "reservation_conflict");
+    expect(conflict.eventHistory.at(-1)?.affectedResourceIds).toContain("station-zone:zone-charging");
+    expect(String(conflict.eventHistory.at(-1)?.payload.reason)).toContain("occupied");
+  });
+
   it("advances mission member asset locations with the traversed guideway segment", () => {
     let state = initializeSimulation(createSimulationFixture("consist-formation-split"));
     state = stepUntilEvent(state, "guideway_segment_entered");
@@ -202,6 +330,95 @@ describe("ATOS simulation engine", () => {
     )).toBe(true);
   });
 
+  it("blocks consist formation for remote, unhealthy, or already assigned assets", () => {
+    const cases: Array<{
+      label: string;
+      mutate: (state: SimulationRuntimeState, assetId: string, originNodeId: string) => SimulationRuntimeState;
+      expectedReason: string;
+    }> = [
+      {
+        label: "remote",
+        mutate: (state, assetId) => ({
+          ...state,
+          assets: state.assets.map((asset) =>
+            asset.assetId === assetId ? { ...asset, nodeId: "fixture:remote-node" } : asset
+          ),
+        }),
+        expectedReason: "not formation origin",
+      },
+      {
+        label: "faulted",
+        mutate: (state, assetId, originNodeId) => ({
+          ...state,
+          assets: state.assets.map((asset) =>
+            asset.assetId === assetId ? { ...asset, nodeId: originNodeId, health: "faulted" } : asset
+          ),
+        }),
+        expectedReason: "faulted",
+      },
+      {
+        label: "assigned",
+        mutate: (state, assetId, originNodeId) => ({
+          ...state,
+          assets: state.assets.map((asset) =>
+            asset.assetId === assetId
+              ? { ...asset, nodeId: originNodeId, activeMissionId: "mission:external" }
+              : asset
+          ),
+        }),
+        expectedReason: "already assigned",
+      },
+    ];
+
+    for (const testCase of cases) {
+      const state = initializeSimulation(createSimulationFixture("simple-passenger"));
+      const mission = state.missions[0];
+      const assetId = mission?.plan.assetIds.find((id) => !id.startsWith("asset:zone")) ?? mission?.plan.assetIds[0];
+      if (!mission || !assetId) {
+        throw new Error(`fixture missing mission asset for ${testCase.label}`);
+      }
+      const result = runSimulationToCompletion(testCase.mutate(state, assetId, mission.plan.route.originNodeId));
+
+      expect(result.missions[0]?.state).toBe("blocked");
+      expect(String(result.eventHistory.find((event) => event.type === "replanning_requested")?.payload.reason))
+        .toContain(testCase.expectedReason);
+    }
+  });
+
+  it("uses only origin service resources for formation even when other station reservations exist", () => {
+    const input = createSimulationFixture("simple-passenger");
+    const mission = input.dispatchResult.missionPlans[0];
+    if (!mission) {
+      throw new Error("fixture mission is missing");
+    }
+    const withExtraDestinationReservation: SimulationInput = {
+      ...input,
+      dispatchResult: {
+        ...input.dispatchResult,
+        reservations: [
+          ...input.dispatchResult.reservations,
+          {
+            id: `reservation:${mission.id}:station-zone:zone-charging:fixture-extra`,
+            missionPlanId: mission.id,
+            resourceType: "station-zone",
+            resourceId: "station-zone:zone-charging",
+            startTime: mission.startsAt,
+            endTime: advanceIsoTime(mission.startsAt, 3600),
+            chitIds: [...mission.chitIds],
+          },
+        ],
+      },
+    };
+
+    const state = stepUntilEvent(initializeSimulation(withExtraDestinationReservation), "formation_started");
+    const formationResources = state.serviceOccupancy
+      .filter((occupancy) => occupancy.action === "formation")
+      .map((occupancy) => occupancy.resourceId);
+
+    expect(formationResources).toContain("station-zone:zone-passenger");
+    expect(formationResources).not.toContain("station-zone:zone-charging");
+  });
+
   it("tracks charging actions and battery state of charge updates", () => {
     const input = createSimulationFixture("battery-support");
     const before = input.dispatchResult.assets
@@ -248,6 +465,22 @@ describe("ATOS simulation engine", () => {
     expect(result.eventHistory.some((event) => event.type === "battery_reserve_violated")).toBe(true);
     expect(result.replanningRequests.length).toBeGreaterThan(0);
     expect(result.missions[0]?.state).toBe("blocked");
+  });
+
+  it("accounts for configured service energy during service actions", () => {
+    const input = createSimulationFixture("simple-passenger");
+    const withoutServiceEnergy = runSimulationToCompletion({
+      ...input,
+      config: { serviceEnergyWh: 0 },
+    });
+    const withServiceEnergy = runSimulationToCompletion({
+      ...input,
+      config: { serviceEnergyWh: 2 },
+    });
+
+    expect(withServiceEnergy.missions[0]?.state).toBe("completed");
+    expect(withServiceEnergy.missions[0]!.energyConsumedWh - withoutServiceEnergy.missions[0]!.energyConsumedWh)
+      .toBeCloseTo(8);
   });
 
   it("raises faults and generates structured replanning requests across the dispatch boundary", () => {
@@ -343,6 +576,24 @@ function stepUntilEvent(
     }
   }
   throw new Error(`Event ${type} was not reached.`);
+}
+
+type TestReservation = SimulationInput["dispatchResult"]["reservations"][number];
+
+function updateReservations(
+  input: SimulationInput,
+  predicate: (reservation: TestReservation) => boolean,
+  update: (reservation: TestReservation) => TestReservation,
+): SimulationInput {
+  return {
+    ...input,
+    dispatchResult: {
+      ...input.dispatchResult,
+      reservations: input.dispatchResult.reservations.map((reservation) =>
+        predicate(reservation) ? update(reservation) : reservation
+      ),
+    },
+  };
 }
 
 function sourceFiles(path: string): string[] {

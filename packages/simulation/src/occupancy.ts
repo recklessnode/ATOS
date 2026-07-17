@@ -22,9 +22,11 @@ export function acquireGuidewayOccupancy(
     assetIds: readonly string[];
   },
 ): OccupancyAcquireResult {
+  const exitAt = advanceIsoTime(input.startTime, input.durationSeconds);
   const conflict = state.guidewayOccupancy.find((occupancy) =>
     occupancy.linkId === input.linkId &&
     occupancy.missionId !== input.missionId &&
+    Date.parse(occupancy.enteredAt) < Date.parse(exitAt) &&
     Date.parse(occupancy.exitAt) > Date.parse(input.startTime)
   );
   if (conflict) {
@@ -36,7 +38,6 @@ export function acquireGuidewayOccupancy(
     };
   }
 
-  const exitAt = advanceIsoTime(input.startTime, input.durationSeconds);
   const occupancy: GuidewayOccupancy = {
     id: `occupancy:guideway:${input.linkId}:${input.missionId}:${input.startTime.replace(/[^0-9]/g, "")}`,
     linkId: input.linkId,
@@ -82,9 +83,11 @@ export function acquireServiceOccupancy(
   },
 ): OccupancyAcquireResult {
   const capacity = serviceCapacity(state, input.resourceId);
+  const endTime = advanceIsoTime(input.startTime, input.durationSeconds);
   const overlapping = state.serviceOccupancy.filter((occupancy) =>
     occupancy.resourceId === input.resourceId &&
     occupancy.missionId !== input.missionId &&
+    Date.parse(occupancy.startTime) < Date.parse(endTime) &&
     Date.parse(occupancy.endTime) > Date.parse(input.startTime)
   );
   const used = overlapping.reduce((sum, occupancy) => sum + occupancy.capacityUsed, 0);
@@ -106,7 +109,7 @@ export function acquireServiceOccupancy(
     missionId: input.missionId,
     action: input.action,
     startTime: input.startTime,
-    endTime: advanceIsoTime(input.startTime, input.durationSeconds),
+    endTime,
     capacityUsed: input.capacityUsed ?? 1,
   };
 

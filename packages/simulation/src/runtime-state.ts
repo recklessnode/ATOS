@@ -23,7 +23,9 @@ export function createInitialRuntimeState(input: SimulationInput): SimulationRun
     eventQueue: [],
     eventHistory: [],
     missions: input.dispatchResult.missionPlans.map((plan) => runtimeMission(plan, input.dispatchResult)),
-    assets: input.dispatchResult.assets.map((asset) => runtimeAsset(asset, input.scenario)),
+    assets: input.dispatchResult.assets.map((asset) =>
+      runtimeAsset(asset, input.scenario, input.initialAssetLocations ?? {})
+    ),
     consists: input.dispatchResult.transientSuperWorkers.map((superWorker) => ({
       id: `runtime-consist:${superWorker.id}`,
       superWorker,
@@ -129,6 +131,53 @@ export function missionReservedResourceIds(
     .sort();
 }
 
+export function missionReservationCoversInterval(
+  state: SimulationRuntimeState,
+  missionId: string,
+  resourceId: string,
+  startTime: string,
+  endTime: string,
+): { available: true } | { available: false; retryAt?: string; terminal: boolean; reason: string } {
+  const reservation = state.reservations.find((candidate) =>
+    candidate.reservation.missionPlanId === missionId && candidate.reservation.resourceId === resourceId
+  );
+  if (!reservation) {
+    return {
+      available: false,
+      terminal: true,
+      reason: `No dispatch reservation exists for ${resourceId}.`,
+    };
+  }
+
+  const actionStart = Date.parse(startTime);
+  const actionEnd = Date.parse(endTime);
+  const reservationStart = Date.parse(reservation.reservation.startTime);
+  const reservationEnd = Date.parse(reservation.reservation.endTime);
+  if (actionStart < reservationStart) {
+    return {
+      available: false,
+      retryAt: reservation.reservation.startTime,
+      terminal: false,
+      reason: `Dispatch reservation for ${resourceId} starts at ${reservation.reservation.startTime}.`,
+    };
+  }
+  if (actionStart >= reservationEnd) {
+    return {
+      available: false,
+      terminal: true,
+      reason: `Dispatch reservation for ${resourceId} expired at ${reservation.reservation.endTime}.`,
+    };
+  }
+  if (actionEnd > reservationEnd) {
+    return {
+      available: false,
+      terminal: true,
+      reason: `Action on ${resourceId} would end at ${endTime}, after reservation end ${reservation.reservation.endTime}.`,
+    };
+  }
+  return { available: true };
+}
+
 export function activateMissionResourceReservations(
   state: SimulationRuntimeState,
   missionId: string,
@@ -161,32 +210,6 @@ export function deactivateMissionResourceReservations(
         : reservation
     ),
   };
-}
-
-export function missionReservationCoversStart(
-  state: SimulationRuntimeState,
-  missionId: string,
-  resourceId: string,
-  timestamp: string,
-): { available: true } | { available: false; retryAt: string; reason: string } {
-  const reservation = state.reservations.find((candidate) =>
-    candidate.reservation.missionPlanId === missionId && candidate.reservation.resourceId === resourceId
-  );
-  if (!reservation) {
-    return {
-      available: false,
-      retryAt: timestamp,
-      reason: `No dispatch reservation exists for ${resourceId}.`,
-    };
-  }
-  if (Date.parse(timestamp) < Date.parse(reservation.reservation.startTime)) {
-    return {
-      available: false,
-      retryAt: reservation.reservation.startTime,
-      reason: `Dispatch reservation for ${resourceId} starts at ${reservation.reservation.startTime}.`,
-    };
-  }
-  return { available: true };
 }
 
 export function releaseMissionReservations(
@@ -239,13 +262,17 @@ function runtimeMission(plan: MissionPlan, result: DispatchPlannerResult): Runti
   };
 }
 
-function runtimeAsset(asset: DispatchPlannerResult["assets"][number], scenario: ScenarioDocumentV1): RuntimeAssetState {
+function runtimeAsset(
+  asset: DispatchPlannerResult["assets"][number],
+  scenario: ScenarioDocumentV1,
+  initialAssetLocations: Readonly<Record<string, string>>,
+): RuntimeAssetState {
   return {
     assetId: asset.id,
     label: asset.label,
     kind: asset.kind,
     tileId: asset.tileId,
-    nodeId: nodeIdForAsset(asset, scenario),
+    nodeId: initialAssetLocations[asset.id] ?? nodeIdForAsset(asset, scenario),
     serviceZoneId: asset.serviceZoneId,
     battery: asset.battery ? { ...asset.battery } : undefined,
     health: asset.state === "maintenance" ? "maintenance_due" : "nominal",
