@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="420" viewBox="0 0 640 420" role="img">
+  <title>S1 sled body STL-derived preview</title>
+  <rect width='640' height='420' fill='#f6f8f7'/>
+  <text x='28' y='34' font-family='Arial, sans-serif' font-size='20' font-weight='700' fill='#1e2b27'>S1 sled body</text>
+  <text x='28' y='58' font-family='Arial, sans-serif' font-size='12' fill='#536862'>s1_sled_body.stl</text>
+  <text x='28' y='76' font-family='Arial, sans-serif' font-size='12' fill='#536862'>bbox 320.00 x 77.00 x 22.20 mm</text>
+  <g aria-label='isometric projection'>
+    <rect x='28.0' y='90.0' width='260.0' height='116.0' rx='8' fill='#ffffff' stroke='#c7d4ce'/>
+    <text x='40.0' y='106.0' font-family='Arial, sans-serif' font-size='11' font-weight='700' fill='#38524b'>isometric</text>
+    <polygon points='66.2,171.5 66.2,171.8 66.3,172.0 66.4,172.2 68.6,175.7 76.7,187.2 108.9,192.0 109.2,192.0 109.5,192.0 109.8,192.0 110.0,192.0 110.3,191.9 110.5,191.8 240.6,139.3 240.7,139.2 240.9,139.1 247.4,133.0 249.5,130.0 249.6,129.7 249.7,129.5 249.8,129.2 249.8,129.0 249.8,128.7 249.7,128.5 249.6,128.3 247.4,124.8 239.3,113.3 210.8,110.0 68.6,167.5 66.5,170.5 66.4,170.7 66.3,171.0 66.2,171.3' fill='#dbe8e3' stroke='#163d35' stroke-width='2'/>
+  </g>
+  <g aria-label='top projection'>
+    <rect x='320.0' y='90.0' width='260.0' height='116.0' rx='8' fill='#ffffff' stroke='#c7d4ce'/>
+    <text x='332.0' y='106.0' font-family='Arial, sans-serif' font-size='11' font-weight='700' fill='#38524b'>top</text>
+    <polygon points='332.0,151.0 345.1,179.4 554.9,179.4 568.0,151.0 554.9,122.6 345.1,122.6' fill='#dbe8e3' stroke='#163d35' stroke-width='2'/>
+  </g>
+  <g aria-label='side projection'>
+    <rect x='28.0' y='235.0' width='260.0' height='116.0' rx='8' fill='#ffffff' stroke='#c7d4ce'/>
+    <text x='40.0' y='251.0' font-family='Arial, sans-serif' font-size='11' font-weight='700' fill='#38524b'>side</text>
+    <polygon points='40.0,303.3 83.5,304.2 232.5,304.2 276.0,303.3 276.0,293.0 253.9,287.8 62.1,287.8 40.0,293.0' fill='#dbe8e3' stroke='#163d35' stroke-width='2'/>
+  </g>
+  <g aria-label='front projection'>
+    <rect x='320.0' y='235.0' width='260.0' height='116.0' rx='8' fill='#ffffff' stroke='#c7d4ce'/>
+    <text x='332.0' y='251.0' font-family='Arial, sans-serif' font-size='11' font-weight='700' fill='#38524b'>front</text>
+    <polygon points='332.0,311.6 339.7,326.3 355.0,330.0 545.0,330.0 560.3,326.3 568.0,311.6 568.0,298.1 555.7,262.0 344.3,262.0 332.0,298.1' fill='#dbe8e3' stroke='#163d35' stroke-width='2'/>
+  </g>
+</svg>

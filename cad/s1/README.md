@@ -39,7 +39,9 @@ Generate all expected STL files and the asset report:
 python3 tools/cad/s1_generate_and_validate.py
 ```
 
-The script renders OpenSCAD targets into `cad/s1/stl/`, checks expected files, reports bounding boxes and volume, checks mesh watertightness when `trimesh` is installed, confirms declared envelopes, and verifies that full-size parts have split alternatives that fit a 220 x 220 mm bed.
+The script renders OpenSCAD targets into `cad/s1/stl/`, checks expected files, reports bounding boxes and volume, checks mesh watertightness when `trimesh` is installed, confirms declared envelopes, verifies that full-size parts have split alternatives that fit a 220 x 220 mm bed, and writes STL-derived SVG previews to `cad/s1/previews/`.
+
+The current OpenSCAD split workflow has a known non-manifold edge gap in several clipped front/rear split STLs. The validator does not claim those files are fully watertight. It reports a `CONDITIONAL PASS` when those known split findings are the only mesh issues. See `known-mesh-gaps.md` for why this is not treated as a complete watertight proof and what work is required to reach full `PASS`.
 
 ## Print recommendations
 
@@ -99,6 +101,23 @@ Use removable, weighed ballast blocks. Record mass, ballast location, measured s
 
 ## Preview references
 
+- `cad/s1/previews/index.svg`
+- `cad/s1/previews/s1_sled_body.svg`
+- `cad/s1/previews/s1_interface_plate.svg`
+- `cad/s1/previews/s1_coupler_front.svg`
+- `cad/s1/previews/s1_coupler_rear.svg`
+- `cad/s1/previews/commuter_pod.svg`
+- `cad/s1/previews/overnight_pod.svg`
+- `cad/s1/previews/battery_pod.svg`
+- `cad/s1/previews/container_40_adapter.svg`
+- `cad/s1/previews/container_20_twin_adapter.svg`
+- `cad/s1/previews/open_bin.svg`
+- `cad/s1/previews/ballast_test_module.svg`
+- `cad/s1/previews/cg_test_fixture.svg`
+- `cad/s1/previews/coupler_angle_gauge.svg`
+- `cad/s1/previews/route_clearance_gauge.svg`
+- `cad/s1/previews/split_alignment_keys.svg`
 - `docs/schematics/s1-sled-interface.svg`
 - `docs/schematics/s1-reference-modules.svg`
 - `cad/s1/asset-report.md`
+- `cad/s1/known-mesh-gaps.md`
