@@ -40,6 +40,19 @@ export type ScenarioMapFocusRequest = {
   requestId: number;
 };
 
+export type ScenarioMapLiveOccupancy = {
+  id: string;
+  kind: "guideway" | "service";
+  resourceId: string;
+  missionId: string;
+  action?: string;
+  label: string;
+};
+
+export type ScenarioMapLiveOverlay = {
+  occupancies: readonly ScenarioMapLiveOccupancy[];
+};
+
 type PointerTracker = {
   lastPoint: { x: number; y: number } | null;
   lastSvgPoint: { x: number; y: number } | null;
@@ -55,6 +68,7 @@ export function ScenarioMap({
   headingStatus = "Layout",
   headingTitle = "Scenario Map Inspector",
   model: providedModel,
+  liveOverlay,
   powerOverlayMode = "voltage",
   sectionId = "layout",
 }: {
@@ -63,6 +77,7 @@ export function ScenarioMap({
   headingDescription?: string;
   headingStatus?: string;
   headingTitle?: string;
+  liveOverlay?: ScenarioMapLiveOverlay;
   model?: ScenarioMapRenderModel;
   powerOverlayMode?: PowerOverlayMode;
   sectionId?: string;
@@ -420,6 +435,10 @@ export function ScenarioMap({
                 />
               ) : null}
 
+              {liveOverlay && liveOverlay.occupancies.length > 0 ? (
+                <LiveOccupancyOverlay model={model} overlay={liveOverlay} />
+              ) : null}
+
               {layers.tileLabels ? (
                 <g aria-label="Tile label layer" pointerEvents="none">
                   {model.tiles.map((tile) => (
@@ -470,6 +489,61 @@ export function ScenarioMap({
         </div>
       </div>
     </section>
+  );
+}
+
+function LiveOccupancyOverlay({
+  model,
+  overlay,
+}: {
+  model: ScenarioMapRenderModel;
+  overlay: ScenarioMapLiveOverlay;
+}) {
+  return (
+    <g aria-label="Live simulation occupancy overlay" className="live-occupancy-overlay" role="group">
+      {overlay.occupancies.map((occupancy) => {
+        if (occupancy.kind === "guideway") {
+          const linkId = occupancy.resourceId.replace(/^guideway-link:/, "");
+          const line = model.guidewayLinks.find((candidate) => candidate.id === linkId);
+          if (!line) {
+            return null;
+          }
+          const midpoint = { x: (line.from.x + line.to.x) / 2, y: (line.from.y + line.to.y) / 2 };
+          return (
+            <g
+              aria-label={`Live guideway occupancy ${line.id} by ${occupancy.missionId}`}
+              className="live-occupancy live-occupancy-guideway"
+              data-stable-id={occupancy.id}
+              data-testid={`live-occupancy-${stableTestId(occupancy.id)}`}
+              key={occupancy.id}
+              role="img"
+            >
+              <line x1={line.from.x} x2={line.to.x} y1={line.from.y} y2={line.to.y} />
+              <text x={midpoint.x} y={midpoint.y - 15}>LIVE</text>
+            </g>
+          );
+        }
+
+        const zoneId = occupancy.resourceId.replace(/^station-zone:/, "");
+        const point = model.serviceZones.find((candidate) => candidate.id === zoneId);
+        if (!point) {
+          return null;
+        }
+        return (
+          <g
+            aria-label={`Live service occupancy ${point.id} ${occupancy.action ?? "service"} by ${occupancy.missionId}`}
+            className="live-occupancy live-occupancy-service"
+            data-stable-id={occupancy.id}
+            data-testid={`live-occupancy-${stableTestId(occupancy.id)}`}
+            key={occupancy.id}
+            role="img"
+          >
+            <circle cx={point.point.x} cy={point.point.y} r="20" />
+            <text x={point.point.x} y={point.point.y - 22}>LIVE</text>
+          </g>
+        );
+      })}
+    </g>
   );
 }
 
@@ -920,4 +994,8 @@ function selectionForPowerTarget(
 
 function formatValue(value: number): string {
   return Number.isFinite(value) ? String(Math.round(value * 100) / 100) : "n/a";
+}
+
+function stableTestId(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9_-]+/g, "-").replace(/^-+|-+$/g, "");
 }

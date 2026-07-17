@@ -4,6 +4,7 @@ import "./App.css";
 import { DispatchWorkspace } from "./features/dispatch-workspace";
 import { LayoutEditor } from "./features/layout-editor";
 import { PowerWorkspace } from "./features/power-workspace";
+import { SimulationWorkspace } from "./features/simulation-workspace";
 import { WORKSPACES } from "./workspaces";
 
 const scenarioSummary = getSixTileCitySummary();
@@ -66,9 +67,10 @@ export function App() {
       <LayoutEditor />
       <PowerWorkspace />
       <DispatchWorkspace />
+      <SimulationWorkspace />
 
       <section className="workspace-grid" aria-label="Workspace placeholders">
-        {WORKSPACES.filter((workspace) => !["layout", "power", "dispatch"].includes(workspace.id)).map((workspace) => (
+        {WORKSPACES.filter((workspace) => !["layout", "power", "dispatch", "simulation"].includes(workspace.id)).map((workspace) => (
           <article className="workspace-panel" id={workspace.id} key={workspace.id}>
             <div>
               <p className="workspace-status">{workspace.status}</p>
