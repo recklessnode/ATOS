@@ -1,0 +1,257 @@
+.simulation-workspace {
+  margin-top: 40px;
+}
+
+.simulation-heading,
+.simulation-controls,
+.simulation-summary,
+.simulation-panel,
+.simulation-map-panel {
+  border: 1px solid #c6d2c9;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.simulation-heading {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(240px, 0.8fr);
+  gap: 20px;
+  align-items: end;
+  padding: 22px;
+}
+
+.simulation-heading h2 {
+  margin-bottom: 0;
+}
+
+.simulation-heading p:last-child {
+  margin-bottom: 0;
+  color: #43554f;
+}
+
+.simulation-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin-top: 16px;
+  padding: 12px;
+}
+
+.simulation-controls button,
+.simulation-panel button,
+.simulation-controls select,
+.simulation-filters select {
+  min-height: 36px;
+  border: 1px solid #9ab2a8;
+  border-radius: 8px;
+  background: #f9fbf8;
+  color: #1f2a27;
+  font: inherit;
+  font-weight: 700;
+}
+
+.simulation-controls button,
+.simulation-panel button {
+  padding: 7px 11px;
+  cursor: pointer;
+}
+
+.simulation-controls label,
+.simulation-filters label {
+  display: grid;
+  gap: 4px;
+  color: #486059;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.simulation-controls select,
+.simulation-filters select {
+  padding: 6px 28px 6px 8px;
+  text-transform: none;
+}
+
+.simulation-summary {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 1px;
+  margin-top: 16px;
+  overflow: hidden;
+  background: #c6d2c9;
+}
+
+.simulation-metric {
+  min-width: 0;
+  padding: 14px;
+  background: #ffffff;
+}
+
+.simulation-metric p,
+.simulation-metric span {
+  margin: 0;
+  color: #61736d;
+  font-size: 0.78rem;
+}
+
+.simulation-metric strong {
+  display: block;
+  margin: 4px 0;
+  color: #17201d;
+  font-size: 1.3rem;
+}
+
+.simulation-map-panel {
+  margin-top: 18px;
+  padding: 0;
+  overflow: hidden;
+}
+
+.simulation-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.simulation-grid-wide {
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 0.75fr);
+}
+
+.simulation-panel {
+  min-width: 0;
+  padding: 16px;
+}
+
+.simulation-panel-heading {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.simulation-panel-heading h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.simulation-panel-heading span {
+  min-width: 32px;
+  border-radius: 999px;
+  padding: 2px 8px;
+  background: #25332f;
+  color: #ffffff;
+  font-size: 0.78rem;
+  text-align: center;
+}
+
+.simulation-list,
+.simulation-events {
+  display: grid;
+  gap: 10px;
+  max-height: 420px;
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+  list-style: none;
+}
+
+.simulation-list.compact {
+  max-height: 340px;
+}
+
+.simulation-list li,
+.simulation-events li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  border-left: 4px solid #7ca291;
+  border-radius: 6px;
+  padding: 10px;
+  background: #f4f8f5;
+}
+
+.simulation-list li.warning,
+.simulation-events li.warning {
+  border-left-color: #c08a1b;
+  background: #fff7e1;
+}
+
+.simulation-events li.error {
+  border-left-color: #b54532;
+  background: #fff0ec;
+}
+
+.simulation-list strong,
+.simulation-events strong {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.simulation-list span,
+.simulation-events span,
+.simulation-list small,
+.simulation-events small {
+  display: block;
+  color: #536862;
+  overflow-wrap: anywhere;
+}
+
+.simulation-panel .table-wrap {
+  max-height: 360px;
+  overflow: auto;
+}
+
+.simulation-panel table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.86rem;
+}
+
+.simulation-panel th,
+.simulation-panel td {
+  border-bottom: 1px solid #d9e2dc;
+  padding: 8px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.simulation-filters {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.empty-state {
+  margin: 0;
+  color: #5c6e68;
+}
+
+@media (max-width: 760px) {
+  .simulation-heading,
+  .simulation-grid,
+  .simulation-grid-wide,
+  .simulation-summary,
+  .simulation-filters {
+    grid-template-columns: 1fr;
+  }
+
+  .simulation-list li,
+  .simulation-events li {
+    grid-template-columns: 1fr;
+  }
+
+  .simulation-controls {
+    align-items: stretch;
+  }
+
+  .simulation-controls button,
+  .simulation-controls label,
+  .simulation-panel button {
+    width: 100%;
+  }
+}

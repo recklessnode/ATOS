@@ -1,6 +1,6 @@
 export type Workspace = {
-  id: "layout" | "power" | "capacity" | "dispatch";
-  name: "Layout" | "Power" | "Capacity" | "Dispatch";
+  id: "layout" | "power" | "capacity" | "dispatch" | "simulation";
+  name: "Layout" | "Power" | "Capacity" | "Dispatch" | "Simulation";
   summary: string;
   status: string;
 };
@@ -28,6 +28,12 @@ export const WORKSPACES = [
     id: "dispatch",
     name: "Dispatch",
     summary: "Universal chit queue, worker matching, reservations, mission plans, and deficiency gates.",
+    status: "Implemented",
+  },
+  {
+    id: "simulation",
+    name: "Simulation",
+    summary: "Deterministic event clock, mission execution, occupancy, faults, energy, and replay.",
     status: "Implemented",
   },
 ] as const satisfies readonly Workspace[];

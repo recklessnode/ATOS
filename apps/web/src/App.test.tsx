@@ -10,6 +10,7 @@ describe("ATOS web shell", () => {
       "Power",
       "Capacity",
       "Dispatch",
+      "Simulation",
     ]);
   });
 
@@ -30,10 +31,12 @@ describe("ATOS web shell", () => {
     expect(screen.getByRole("heading", { name: "Scenario Layout Editor" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "DC Power Integrity" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Dispatch Planning Core" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Simulation Event Log" })).toBeInTheDocument();
     expect(within(placeholderRegion).getByRole("heading", { name: "Capacity" })).toBeInTheDocument();
     expect(within(placeholderRegion).queryByRole("heading", { name: "Layout" })).not.toBeInTheDocument();
     expect(within(placeholderRegion).queryByRole("heading", { name: "Power" })).not.toBeInTheDocument();
     expect(within(placeholderRegion).queryByRole("heading", { name: "Dispatch" })).not.toBeInTheDocument();
+    expect(within(placeholderRegion).queryByRole("heading", { name: "Simulation" })).not.toBeInTheDocument();
   });
 
   it("renders the loaded six-tile fixture counts", () => {
