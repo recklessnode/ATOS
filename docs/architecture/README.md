@@ -11,6 +11,7 @@ The central idea is that tracks, buildings, stations, machines, scenery, train c
 - [Resources, Recipes, and Logistics](resources-recipes-logistics.md) — inventories, transformations, demand, and transport.
 - [Hex Tile Runtime](hex-tile-runtime.md) — topology, power, data, payload discovery, and scheduling.
 - [Vehicles, Consists, and Routes](vehicles-consists-routes.md) — cargo vehicles, dynamic consists, and addressed movement authorities.
+- [Modular Sled Platform](modular-sled-platform.md) — S1 sled/module identity, interface, datums, couplers, ballast experiments, and route-admission boundary.
 - [S1 Vehicle Dynamics and Loading Envelope](../engineering/s1-vehicle-dynamics-loading-envelope.md) — provisional mass, center-of-mass, curve, coupler, clearance, dynamic, route-admission, and prototype-test limits.
 - [Effects and Spatial Audio](effects-spatial-audio.md) — state-driven light, motion, and low-latency sound.
 - [Design Precedents](design-precedents.md) — lessons adapted from OpenSC2K, Factorio, Mindustry, and Satisfactory.
