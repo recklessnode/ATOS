@@ -11,6 +11,7 @@ The central idea is that tracks, buildings, stations, machines, scenery, train c
 - [Resources, Recipes, and Logistics](resources-recipes-logistics.md) — inventories, transformations, demand, and transport.
 - [Hex Tile Runtime](hex-tile-runtime.md) — topology, power, data, payload discovery, and scheduling.
 - [Vehicles, Consists, and Routes](vehicles-consists-routes.md) — cargo vehicles, dynamic consists, and addressed movement authorities.
+- [Modular Sled Platform](modular-sled-platform.md) — reusable mobility sleds and removable passenger, cargo, and energy modules.
 - [Effects and Spatial Audio](effects-spatial-audio.md) — state-driven light, motion, and low-latency sound.
 - [Design Precedents](design-precedents.md) — lessons adapted from OpenSC2K, Factorio, Mindustry, and Satisfactory.
 - [Worked Examples](worked-examples.md) — houses, church, factory, station, and train examples.
