@@ -136,6 +136,39 @@ h1 {
   background: #ffffff;
 }
 
+.deployment-footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+  border-top: 1px solid #ccd6d1;
+  padding: 20px 0 0;
+  color: #4d635d;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.deployment-footer a {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.deployment-footer a:focus-visible {
+  outline: 3px solid #d4a72c;
+  outline-offset: 3px;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  clip-path: inset(50%);
+}
+
 .workspace-panel h2 {
   margin-bottom: 0;
   color: #1d3832;
