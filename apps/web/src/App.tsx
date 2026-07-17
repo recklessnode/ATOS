@@ -1,8 +1,10 @@
 import { useLayoutEffect } from "react";
 import { getSixTileCitySummary } from "@atos/scenario";
 import "./App.css";
+import { DeploymentFooter } from "./DeploymentFooter";
 import { DispatchWorkspace } from "./features/dispatch-workspace";
 import { LayoutEditor } from "./features/layout-editor";
+import { OperationsWorkspace } from "./features/operations-workspace";
 import { PowerWorkspace } from "./features/power-workspace";
 import { SimulationWorkspace } from "./features/simulation-workspace";
 import { WORKSPACES } from "./workspaces";
@@ -68,9 +70,10 @@ export function App() {
       <PowerWorkspace />
       <DispatchWorkspace />
       <SimulationWorkspace />
+      <OperationsWorkspace />
 
       <section className="workspace-grid" aria-label="Workspace placeholders">
-        {WORKSPACES.filter((workspace) => !["layout", "power", "dispatch", "simulation"].includes(workspace.id)).map((workspace) => (
+        {WORKSPACES.filter((workspace) => !["layout", "power", "dispatch", "simulation", "operations"].includes(workspace.id)).map((workspace) => (
           <article className="workspace-panel" id={workspace.id} key={workspace.id}>
             <div>
               <p className="workspace-status">{workspace.status}</p>
@@ -80,6 +83,7 @@ export function App() {
           </article>
         ))}
       </section>
+      <DeploymentFooter />
     </main>
   );
 }

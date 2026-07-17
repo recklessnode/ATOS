@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@atos/dispatch": "0.0.0",
+    "@atos/operations": "0.0.0",
     "@atos/power": "0.0.0",
     "@atos/scenario": "0.0.0",
     "@atos/scenario-editor": "0.0.0",

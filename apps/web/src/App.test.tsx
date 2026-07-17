@@ -11,6 +11,7 @@ describe("ATOS web shell", () => {
       "Capacity",
       "Dispatch",
       "Simulation",
+      "Operations",
     ]);
   });
 
@@ -32,11 +33,18 @@ describe("ATOS web shell", () => {
     expect(screen.getByRole("heading", { name: "DC Power Integrity" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Dispatch Planning Core" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Simulation Event Log" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Closed-Loop Operations" })).toBeInTheDocument();
     expect(within(placeholderRegion).getByRole("heading", { name: "Capacity" })).toBeInTheDocument();
     expect(within(placeholderRegion).queryByRole("heading", { name: "Layout" })).not.toBeInTheDocument();
     expect(within(placeholderRegion).queryByRole("heading", { name: "Power" })).not.toBeInTheDocument();
     expect(within(placeholderRegion).queryByRole("heading", { name: "Dispatch" })).not.toBeInTheDocument();
     expect(within(placeholderRegion).queryByRole("heading", { name: "Simulation" })).not.toBeInTheDocument();
+    expect(within(placeholderRegion).queryByRole("heading", { name: "Operations" })).not.toBeInTheDocument();
+    expect(screen.getByRole("contentinfo", { name: /deployment freshness/i })).toHaveTextContent(/ATOS v/);
+    expect(screen.getByRole("link", { name: "GitHub" })).toHaveAttribute(
+      "href",
+      "https://github.com/recklessnode/ATOS",
+    );
   });
 
   it("renders the loaded six-tile fixture counts", () => {
